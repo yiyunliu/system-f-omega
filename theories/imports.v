@@ -17,3 +17,4 @@ Global Disable Notation "'var'" : subst_scope.
 Global Disable Notation "↑".
 Notation "s '…'" := (scons s ids) (at level 70) : subst_scope.
 Global Open Scope subst_scope.
+Global Open Scope list_scope.

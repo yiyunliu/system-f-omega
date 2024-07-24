@@ -109,6 +109,9 @@ Proof.
   hauto lq:on use:par_diamond, @diamond_confluent unfold:confluent, diamond.
 Qed.
 
+Definition Coherent a b := exists c, a ⇒* c /\ b ⇒* c.
+Infix "⇔" := Coherent (at level 70, no associativity).
+
 (* Based on https://poplmark-reloaded.github.io/coq/well-scoped/PR.sn_defs.html *)
 Inductive SN : Term -> Prop :=
 | S_Neu a : SNe a -> SN a
