@@ -108,3 +108,27 @@ Lemma pars_diamond : confluent Par.
 Proof.
   hauto lq:on use:par_diamond, @diamond_confluent unfold:confluent, diamond.
 Qed.
+
+(* Based on https://poplmark-reloaded.github.io/coq/well-scoped/PR.sn_defs.html *)
+Inductive SN : Term -> Prop :=
+| S_Neu a : SNe a -> SN a
+| S_Abs A a : SN A -> SN a -> SN (Abs A a)
+| S_Sort s : SN (ISort s)
+| S_Pi A B : SN A -> SN B -> SN (Pi A B)
+| S_Red a0 a1 : SNRed a0 a1 -> SN a1 -> SN a0
+with SNe : Term -> Prop :=
+| S_Var i : SNe (VarTm i)
+| S_App a b : SNe a -> SN b -> SNe (App a b)
+with SNRed : Term -> Term -> Prop :=
+| S_AppL a0 a1 b :
+  SNRed a0 a1 ->
+  SNRed (App a0 b) (App a1 b)
+| S_AppAbs A a b :
+  SN A ->
+  SN b ->
+  SNRed (App (Abs A a) b) a[b…].
+
+Scheme SN_ind_2 := Minimality for SN Sort Prop
+                   with SNe_ind_2 := Minimality for SNe Sort Prop
+                    with redSN_ind_2 := Minimality for SNRed Sort Prop.
+Combined Scheme SN_multind from SN_ind_2, SNe_ind_2, redSN_ind_2.
