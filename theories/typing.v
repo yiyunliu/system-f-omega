@@ -29,6 +29,7 @@ Qed.
 
 Inductive Wt : Basis -> Term -> Term -> Prop :=
 | T_Var Γ i A :
+  ⊢ Γ ->
   Lookup i Γ A ->
   (* ----------- *)
   Γ ⊢ VarTm i ∈ A
@@ -49,7 +50,7 @@ Inductive Wt : Basis -> Term -> Term -> Prop :=
   Γ ⊢ a ∈ A ->
   Γ ⊢ b ∈ Pi A B ->
   (* --------------- *)
-  Γ ⊢ App b a ∈ b[a…]
+  Γ ⊢ App b a ∈ B[a…]
 
 | T_Pi Γ A s1 B s2 :
   Γ ⊢ A ∈ ISort s1 ->

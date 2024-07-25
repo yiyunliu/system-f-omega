@@ -29,8 +29,17 @@ Definition down_cls c :=
   | _ => C_Term
   end.
 
+Inductive Kind_Or_Else : Set :=
+| KoE_Kind (sk : Skel)
+| KoE_Else.
 
-Fixpoint cl_term Σ a : Cls :=
+Definition Kind_Or_ElseP a :=
+  match a with
+  | C_Kind sk => KoE_Kind sk
+  | _ => KoE_Else
+  end.
+
+Function cl_term Σ a : Cls :=
   match a with
   | ISort _ => C_Kind SK_Star
   | VarTm i => match nth_error Σ i with
@@ -61,9 +70,11 @@ Inductive loose_eqc : Cls -> Cls -> Prop :=
 | L_Term :
   loose_eqc C_Term C_Term.
 
+Scheme Equality for Skel.
+
 Definition adj_cls c0 c1 :=
   match c0, c1 with
-  | C_Type _, C_Kind _ => true
+  | C_Type sk1, C_Kind sk2 => Skel_beq sk1 sk2
   | C_Term, C_Type _ => true
   | _, _ => false
   end.
@@ -74,13 +85,58 @@ Fixpoint cl_basis Γ :=
   | A :: Γ => cl_term (cl_basis Γ) A :: cl_basis Γ
   end.
 
-Inductive Kind_Or_Else a : Cls ->  Prop :=
-| KoE_Kind sk : Kind_Or_Else a (C_Kind sk)
-| KoE_Else : Kind_Or_Else a a.
+(* Lemma Kind_Or_ElseP a : *)
+(*   Kind_Or_Else a a. *)
+(* Proof. hauto lq:on inv:Cls ctrs:Kind_Or_Else. Qed. *)
+(* nth_error (cl_basis Γ) i *)
 
-Lemma Kind_Or_ElseP a :
-  Kind_Or_Else a a.
-Proof. hauto lq:on inv:Cls ctrs:Kind_Or_Else. Qed.
+Lemma cl_up_ren ξ (c : Cls) Σ0 Σ1 :
+  (forall i, nth_error Σ0 i = nth_error Σ1 (ξ i)) ->
+  (forall i, nth_error (c::Σ0) i = nth_error (c::Σ1) (upRen_Term_Term ξ i)).
+Proof. qauto l:on inv:nat. Qed.
+
+Lemma cl_term_abs_eq Σ0 a0 b0 Σ1 a1 b1 :
+  cl_term Σ0 a0 = cl_term Σ1 a1 ->
+  cl_term (cl_term Σ0 a0 :: Σ0) b0 = cl_term (cl_term Σ0 a0 :: Σ1) b1 ->
+  cl_term Σ0 (Abs a0 b0) = cl_term Σ1 (Abs a1 b1).
+Proof. hauto lq:on. Qed.
+
+Lemma cl_term_pi_eq Σ0 a0 b0 Σ1 a1 b1 :
+  cl_term Σ0 a0 = cl_term Σ1 a1 ->
+  cl_term (cl_term Σ0 a0 :: Σ0) b0 = cl_term (cl_term Σ0 a0 :: Σ1) b1 ->
+  cl_term Σ0 (Pi a0 b0) = cl_term Σ1 (Pi a1 b1).
+Proof. hauto lq:on. Qed.
+
+Lemma cl_term_renaming a ξ Σ0 Σ1 :
+  (forall i, nth_error Σ0 i = nth_error Σ1 (ξ i)) ->
+  cl_term Σ0 a = cl_term Σ1 (a⟨ξ⟩).
+Proof.
+  elim : a ξ Σ0 Σ1.
+  - hauto lq:on.
+  - sfirstorder.
+  - sfirstorder use:cl_term_abs_eq, cl_up_ren.
+  - hauto lq:on.
+  - sfirstorder use:cl_term_pi_eq, cl_up_ren.
+Qed.
+
+Lemma Lookup_EBasis i Γ A (h : Lookup i Γ A) :
+  nth_error (cl_basis Γ) i = Some (cl_term (cl_basis Γ) A).
+Proof.
+  elim : i Γ A / h; qauto l:on use:cl_term_renaming.
+Qed.
+
+Lemma adj_cls_abs_pi Σ A a B :
+  adj_cls (cl_term (cl_term Σ A :: Σ) a) (cl_term (cl_term Σ A :: Σ) B) ->
+  adj_cls (cl_term Σ (Abs A a)) (cl_term Σ (Pi A B)).
+Proof. best. Qed.
+
+Lemma adj_cls_app Σ b a c :
+  adj_cls (cl_term Σ (App b a)) c = adj_cls (cl_term Σ b) c.
+Proof. hauto lq:on rew:off. Qed.
+
+Lemma adj_cls_pi Σ A B c :
+  adj_cls (cl_term Σ (Pi A B)) c = adj_cls (cl_term (cl_term Σ A :: Σ) B) c.
+Proof. hauto lq:on rew:off. Qed.
 
 Lemma cl_term_sound Γ a A :
   Γ ⊢ a ∈ A ->
@@ -91,13 +147,22 @@ Proof.
   move => h /=. elim : Γ a A / h.
   (* Easy *)
   - simpl.
+    move => Γ i A /Lookup_EBasis h s hA.
+    rewrite h.
     admit.
   (* Contradiction *)
   - simpl.
     admit.
-  (*  *)
-  - move => Γ A s1 a B s2 hA ihA ha iha hB ihB s h /=.
-    move E : (cl_term (cl_basis Γ) A) => c0.
-    case : (Kind_Or_ElseP c0) E.
-    + admit.
-    + case :
+  (* Pi *)
+  - move => Γ A s1 a B s2 hA ihA ha iha hB ihB s h.
+    rewrite adj_cls_abs_pi.
+    apply : iha; eauto.
+  - move => Γ a b A B ha iha hb ihb s h.
+    rewrite adj_cls_app.
+    admit.
+  - move => Γ A s1 B s2 hA ihA hB ihB s hs.
+    rewrite adj_cls_pi. simpl.
+    apply ihB with (s := s).
+    admit.
+  - move => Γ a A B s ha iha hB ihB h s0 hs0.
+    admit.
