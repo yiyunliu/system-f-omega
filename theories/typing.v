@@ -76,3 +76,7 @@ with Wf : Basis -> Prop :=
   ⊢ A :: Γ
 
 where "Γ ⊢ a ∈ A" := (Wt Γ a A) and "⊢ Γ" := (Wf Γ).
+
+Scheme Wt_ind_2 := Minimality for Wt Sort Prop
+    with Wf_ind_2 := Minimality for Wf Sort Prop.
+Combined Scheme Wt_multind from Wt_ind_2, Wf_ind_2.

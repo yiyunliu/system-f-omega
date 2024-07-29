@@ -66,4 +66,64 @@ Proof.
   hauto lq:on ctrs:Lookup unfold:ξ_ok.
 Qed.
 
-Lemma
+Definition ρ_ok ρ Γ Δ :=
+  forall i A, Lookup i Γ A -> Δ ⊢ ρ i ∈ A [ ρ ].
+
+Lemma ρ_ok_id Γ : ⊢ Γ -> ρ_ok ids Γ Γ.
+Proof. hauto l:on use:T_Var unfold:ρ_ok simp+:asimpl. Qed.
+
+Lemma ρ_ext ρ Γ Δ a A :
+  Δ ⊢ a ∈ A[ρ] ->
+  ρ_ok ρ Γ Δ ->
+  ρ_ok (a.:ρ) (A::Γ) Δ.
+Proof.
+  hauto q:on inv:Lookup, Wf unfold:ρ_ok db:wf simp+:asimpl.
+Qed.
+
+Lemma ρ_ξ_comp ρ ξ Γ Δ Ξ
+  (hρ : ρ_ok ρ Γ Δ)
+  (hξ : ξ_ok ξ Δ Ξ)
+  (hΞ : ⊢ Ξ) :
+  ρ_ok (ρ >> ren_Term ξ) Γ Ξ.
+Proof.
+  move => i A hA.
+  suff : Ξ ⊢ (ρ i)⟨ξ⟩ ∈ A[ρ]⟨ξ⟩ by asimpl.
+  rewrite /ρ_ok /ξ_ok.
+  eauto using renaming.
+Qed.
+
+Lemma ρ_suc ρ Γ Δ A s
+  (h : ρ_ok ρ Γ Δ) (hA : Δ ⊢ A ∈ ISort s) :
+  ρ_ok (ρ >> ren_Term S) Γ (A :: Δ).
+Proof.
+  apply : ρ_ξ_comp; eauto with wf.
+  rewrite /ξ_ok.
+  hauto lq:on ctrs:Lookup.
+Qed.
+
+Lemma ρ_up ρ Γ Δ A s :
+  ρ_ok ρ Γ Δ ->
+  Δ ⊢ A[ρ] ∈ ISort s ->
+  ρ_ok (up_Term ρ) (A :: Γ) (A[ρ] :: Δ).
+Proof.
+  move => hρ hA.
+  apply ρ_ext.
+  apply : T_Var; eauto with wf.
+  apply LookupIff=>//=. by asimpl.
+  eauto using ρ_suc.
+Qed.
+
+Lemma morphing Γ a A (h : Γ ⊢ a ∈ A) : forall Δ ρ,
+    ρ_ok ρ Γ Δ ->
+    ⊢ Δ ->
+    Δ ⊢ a[ρ] ∈ A[ρ].
+Proof.
+  elim : Γ a A /h.
+  - qauto use:T_Var unfold:ρ_ok.
+  - qauto use:T_Star.
+  - hauto q:on use:ρ_up, T_Abs db:wf.
+  - move => *.
+    apply : T_App'; eauto. rewrite -/subst_Term. by asimpl.
+  - hauto q:on use:ρ_up, T_Pi db:wf.
+  - hauto q:on use:coherent_subst, T_Conv.
+Qed.
