@@ -23,6 +23,59 @@ Fixpoint interp_skel a : Type :=
       interp_skel S0 -> interp_skel S1 -> Prop
   end.
 
+Definition ProdSpace (S0 S1 : Term -> Prop) b : Prop := forall a, S0 a -> S1 (App b a).
+
+Definition InterSpace {A : Type} (S : A -> (Term -> Prop) -> Prop) (b : Term) : Prop := forall a S0, S a S0 -> S0 b.
+
+Inductive type_interp (Γ : Basis) (ξ : nat -> option {A : Skel & interp_skel A}) : Term -> forall (A : Skel), interp_skel A -> Prop :=
+| TI_Star s :
+  type_interp Γ ξ (ISort s) SK_Star SN
+
+| TI_Var i Sk1 S :
+  Some (existT Sk1 S) = ξ i ->
+  type_interp Γ ξ (VarTm i) Sk1 S
+
+| TI_App P Q Sk1 Sk2 S1 S2 F :
+  type_interp Γ ξ P (SK_Arr Sk1 Sk2) F ->
+  type_interp Γ ξ Q Sk1 S1 ->
+  F S1 S2 ->
+  (* -------------------- *)
+  type_interp Γ ξ (App P Q) Sk2 S2
+
+| TI_AppTm Sk P t A S  :
+  type_interp Γ ξ P Sk S ->
+  Γ ⊢ t ∈ A ->
+  Γ ⊢ A ∈ ISort Star ->
+  (* ------------------------------- *)
+  type_interp Γ ξ (App P t) Sk S
+
+| TI_Abs A B Sk1 Sk2 PF :
+  kind_interp Γ A Sk1 ->
+  (forall a, exists S, PF a S) ->
+  (forall a S, PF a S -> type_interp (A::Γ) (Some (existT Sk1 a) .: ξ) B  Sk2 S) ->
+  (* ------------------------------ *)
+  type_interp Γ ξ (Abs A B) (SK_Arr Sk1 Sk2) PF
+
+| TI_AbsTm A B Sk S :
+  Γ ⊢ A ∈ ISort Star ->
+  type_interp (A::Γ) (None .: ξ) B Sk S ->
+  (* ------------------------------------ *)
+  type_interp Γ ξ (Abs A B) Sk S
+
+| TI_Pi A B S1 S2:
+  Γ ⊢ A ∈ ISort Star ->
+  type_interp Γ ξ A SK_Star S1 ->
+  type_interp (A::Γ) (None .: ξ) B SK_Star S2 ->
+  (* ------------------------------------------------------------- *)
+  type_interp Γ ξ (Pi A B) SK_Star (ProdSpace S1 S2)
+
+| TI_PiKind A Sk B S PF :
+  kind_interp Γ A Sk ->
+  type_interp Γ ξ A SK_Star S  ->
+  (forall a, exists S, PF a S) ->
+  (forall a S, PF a S -> type_interp (A::Γ) (Some (existT Sk a) .: ξ) B SK_Star S) ->
+  type_interp Γ ξ (Pi A B) SK_Star (ProdSpace S (InterSpace PF)).
+
 (* Lemma that gives the shape of a kind (excludes app) *)
 
 (* Lemma subject_reduction Γ a A  : *)
@@ -93,54 +146,3 @@ Proof.
     by firstorder using kind_interp_not_star.
     sfirstorder.
 Qed.
-
-Definition ProdSpace (S0 S1 : Term -> Prop) b : Prop := forall a, S0 a -> S1 (App b a).
-
-Inductive type_interp (Γ : Basis) (ξ : nat -> option {A : Skel & interp_skel A}) : Term -> forall (A : Skel), interp_skel A -> Prop :=
-| TI_Star s :
-  type_interp Γ ξ (ISort s) SK_Star SN
-
-| TI_Var i Sk1 S :
-  Some (existT Sk1 S) = ξ i ->
-  type_interp Γ ξ (VarTm i) Sk1 S
-
-| TI_App P Q Sk1 Sk2 S1 S2 F :
-  type_interp Γ ξ P (SK_Arr Sk1 Sk2) F ->
-  type_interp Γ ξ Q Sk1 S1 ->
-  F S1 S2 ->
-  (* -------------------- *)
-  type_interp Γ ξ (App P Q) Sk2 S2
-
-| TI_AppTm Sk P t A S  :
-  type_interp Γ ξ P Sk S ->
-  Γ ⊢ t ∈ A ->
-  Γ ⊢ A ∈ ISort Star ->
-  (* ------------------------------- *)
-  type_interp Γ ξ (App P t) Sk S
-
-| TI_Abs A B Sk1 Sk2 PF :
-  kind_interp Γ A Sk1 ->
-  (forall a, exists S, PF a S) ->
-  (forall a S, PF a S -> type_interp (A::Γ) (Some (existT Sk1 a) .: ξ) B  Sk2 S) ->
-  (* ------------------------------ *)
-  type_interp Γ ξ (Abs A B) (SK_Arr Sk1 Sk2) PF
-
-| TI_AbsTm A B Sk S :
-  Γ ⊢ A ∈ ISort Star ->
-  type_interp (A::Γ) (None .: ξ) B Sk S ->
-  (* ------------------------------------ *)
-  type_interp Γ ξ (Abs A B) Sk S
-
-| TI_Pi A B S1 S2:
-  Γ ⊢ A ∈ ISort Star ->
-  type_interp Γ ξ A SK_Star S1 ->
-  type_interp (A::Γ) (None .: ξ) B SK_Star S2 ->
-  (* ------------------------------------------------------------- *)
-  type_interp Γ ξ (Pi A B) SK_Star (ProdSpace S1 S2)
-
-| TI_PiKind A Sk B S PF :
-  kind_interp Γ A Sk ->
-  type_interp Γ ξ A SK_Star S  ->
-  (forall a, exists S, PF a S) ->
-  (forall a S, PF a S -> type_interp (A::Γ) (Some (existT Sk a) .: ξ) B SK_Star S) ->
-  type_interp Γ ξ (Pi A B) SK_Star (ProdSpace S (fun b => forall a S, PF a S -> S b)).

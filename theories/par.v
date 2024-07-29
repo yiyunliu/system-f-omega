@@ -109,8 +109,20 @@ Proof.
   hauto lq:on use:par_diamond, @diamond_confluent unfold:confluent, diamond.
 Qed.
 
+Lemma pars_renaming a b ξ :
+  a ⇒* b ->
+  a⟨ξ⟩ ⇒* b⟨ξ⟩.
+Proof.
+  induction 1; hauto lq:on ctrs:rtc use:par_renaming.
+Qed.
+
 Definition Coherent a b := exists c, a ⇒* c /\ b ⇒* c.
 Infix "⇔" := Coherent (at level 70, no associativity).
+
+Lemma coherent_renaming a b ξ :
+  a ⇔ b ->
+  a⟨ξ⟩ ⇔ b⟨ξ⟩.
+Proof. hauto lq:on use:pars_renaming unfold:Coherent. Qed.
 
 (* Based on https://poplmark-reloaded.github.io/coq/well-scoped/PR.sn_defs.html *)
 Inductive SN : Term -> Prop :=
