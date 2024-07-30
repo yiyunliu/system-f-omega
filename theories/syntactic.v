@@ -131,14 +131,19 @@ Qed.
 Definition inv_spec Γ a A : Prop :=
   match a with
   | ISort Kind => False
-  | ISort Star => A ⇔ ISort Kind
-  | VarTm i => exists A0, Lookup i Γ A0 /\ A ⇔ A0
-  | Abs A0 a => exists B s1 s2, Γ ⊢ A0 ∈ ISort s1 /\ A0 :: Γ ⊢ a ∈ B /\ A0 :: Γ ⊢ B ∈ ISort s2 /\ A ⇔ Pi A0 B
-  | App b a => exists A0 B, Γ ⊢ b ∈ Pi A0 B /\ Γ ⊢ a ∈ A0 /\ A ⇔ B[a…]
-  | Pi A0 B => exists s1 s2, Γ ⊢ A0 ∈ ISort s1 /\ A0::Γ ⊢ B ∈ ISort s2 /\ A ⇔ ISort s2
+  | ISort Star => ISort Kind ⇔ A
+  | VarTm i => exists A0, Lookup i Γ A0 /\ A0 ⇔ A
+  | Abs A0 a => exists B s1 s2, Γ ⊢ A0 ∈ ISort s1 /\ A0 :: Γ ⊢ a ∈ B /\ A0 :: Γ ⊢ B ∈ ISort s2 /\ Pi A0 B ⇔ A
+  | App b a => exists A0 B, Γ ⊢ b ∈ Pi A0 B /\ Γ ⊢ a ∈ A0 /\ B[a…] ⇔ A
+  | Pi A0 B => exists s1 s2, Γ ⊢ A0 ∈ ISort s1 /\ A0::Γ ⊢ B ∈ ISort s2 /\ ISort s2 ⇔ A
   end.
+
+Lemma inv_spec_conv Γ a A B : inv_spec Γ a A -> A ⇔ B -> inv_spec Γ a B.
+Proof.
+  case : a => //=; hauto lq:on rew:off use:coherent_trans.
+Qed.
 
 Lemma wt_inv Γ a A (h : Γ ⊢ a ∈ A) : inv_spec Γ a A.
 Proof.
-  elim : Γ a A /h=>//=.
-  -
+  elim : Γ a A /h=>//=; eauto 10 using coherent_refl, inv_spec_conv.
+Qed.

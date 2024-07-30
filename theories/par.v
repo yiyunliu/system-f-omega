@@ -143,6 +143,21 @@ Lemma coherent_subst a b ρ :
   a[ρ] ⇔ b[ρ].
 Proof. hauto lq:on use:pars_subst unfold:Coherent. Qed.
 
+Lemma coherent_refl : forall a, a ⇔ a.
+Proof. hauto lq:on use:rtc_refl unfold:Coherent. Qed.
+
+Lemma coherent_sym : forall a b, a ⇔ b -> b ⇔ a.
+Proof. rewrite /Coherent. firstorder. Qed.
+
+Lemma coherent_trans : forall a b c, a ⇔ b -> b ⇔ c -> a ⇔ c.
+Proof.
+  rewrite /Coherent.
+  have h := pars_diamond. rewrite /confluent /diamond in h.
+  move => a b c [ab [ha0 hb0]] [bc [ha1 hb1]].
+  have [abc [hab hbc]] : exists abc, ab ⇒* abc /\ bc ⇒* abc by firstorder.
+  exists abc. eauto using rtc_transitive.
+Qed.
+
 (* Based on https://poplmark-reloaded.github.io/coq/well-scoped/PR.sn_defs.html *)
 Inductive SN : Term -> Prop :=
 | S_Neu a : SNe a -> SN a
