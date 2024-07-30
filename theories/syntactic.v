@@ -147,3 +147,33 @@ Lemma wt_inv Γ a A (h : Γ ⊢ a ∈ A) : inv_spec Γ a A.
 Proof.
   elim : Γ a A /h=>//=; eauto 10 using coherent_refl, inv_spec_conv.
 Qed.
+
+Lemma kind_imp Γ A :
+  ~ Γ ⊢ ISort Kind ∈ A.
+Proof. firstorder using wt_inv. Qed.
+
+Lemma wt_unique Γ t T U :
+  Γ ⊢ t ∈ T ->
+  Γ ⊢ t ∈ U ->
+  T ⇔ U.
+Proof.
+  move => h. move : U.
+  elim : Γ t T /h.
+  - move => Γ i A hΓ hi U /wt_inv //=.
+    move => [A0][hA0]?.
+    suff : A = A0 by congruence.
+    eauto using lookup_functional.
+  - qauto use:wt_inv.
+  - move => Γ A s1 a B s2 hA ihA ha iha hB ihB U /wt_inv/=.
+    move => [B0][s3][s4][hA'][ha'][hB0]hU.
+    suff : Pi A B ⇔ Pi A B0 by eauto using coherent_trans.
+    have : B ⇔ B0 by firstorder.
+    have : A ⇔ A by auto using coherent_refl.
+    admit.
+  - admit.
+  - move => Γ A s1 B s2 hA ihA hB ihB U /wt_inv/=.
+    move => [s3][s4][hA0][hB0]h.
+    suff : ISort s2 ⇔ ISort s4 by eauto using coherent_trans.
+    firstorder.
+  - eauto using coherent_trans, coherent_sym.
+Admitted.

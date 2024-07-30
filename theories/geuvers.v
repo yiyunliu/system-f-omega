@@ -91,14 +91,6 @@ Inductive type_interp (Γ : Basis) (ξ : nat -> option {A : Skel & interp_skel A
 (*     admit. *)
 (* Admitted. *)
 
-Lemma kind_imp Γ A :
-  ~ Γ ⊢ ISort Kind ∈ A.
-Proof.
-  move E : (ISort Kind) => a h.
-  move : E.
-  elim : Γ a A /h=>//=.
-Qed.
-
 Lemma wt_has_interp Γ A :
   Γ ⊢ A ∈ ISort Kind -> exists V, kind_interp Γ A V.
 Proof.

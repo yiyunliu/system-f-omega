@@ -27,6 +27,9 @@ Proof.
   - elim : n Γ A; hauto q:on inv:list ctrs:Lookup.
 Qed.
 
+Lemma lookup_functional n Γ A B : Lookup n Γ A -> Lookup n Γ B -> A = B.
+Proof. rewrite !LookupIff. congruence. Qed.
+
 Inductive Wt : Basis -> Term -> Term -> Prop :=
 | T_Var Γ i A :
   ⊢ Γ ->
