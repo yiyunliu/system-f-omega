@@ -128,7 +128,7 @@ Qed.
 
 Ltac solve_s_rec :=
   move => *; eapply rtc_l; eauto;
-         hauto lq:on ctrs:Par use:par_refl, preservation.
+         hauto lq:on ctrs:Par use:par_refl.
 
 Ltac solve_pars_cong :=
   repeat (  let x := fresh "x" in
@@ -142,12 +142,11 @@ Proof. solve_pars_cong. Qed.
 
 Lemma PS_Pi : ltac2:(gen_cong P_Pi Pars).
 Proof.
-  move => Ξ A0 A1 ++ h.
-  induction h.
-  induction 1; auto using rtc_refl.
-  solve_s_rec.
-  move => B0 B1.
-  simpl.
+  move => Ξ A0 + B0 B1 + h.
+  elim : B0 B1 /h; last by solve_s_rec.
+  move => B A1 h.
+  elim : A0 A1 / h; last by solve_s_rec.
+  auto using rtc_refl.
 Qed.
 
 Lemma PS_Sort : ltac2:(gen_cong P_Sort Pars).
@@ -155,7 +154,7 @@ Proof. solve_pars_cong. Qed.
 
 Lemma P_AppAbs' Ξ A a0 a1 b0 b1 u :
   u = a1[b1…] ->
-  Par Ξ a0 a1 ->
+  Par (degree Ξ A -1 .: Ξ) a0 a1 ->
   Par Ξ b0 b1 ->
   degree Ξ b1 = degree Ξ A - 1 ->
   (* -------------------- *)
@@ -169,20 +168,24 @@ Lemma par_renaming Ξ0 Ξ1 a b ξ :
 Proof.
   move => + h. move : Ξ1  ξ. elim : Ξ0 a b/h; try solve [simpl;eauto with par].
   - hauto lq:on ctrs:Par use:renaming, ξ_ok_up.
-  - move => Ξ A0 A1 B0 B1 hA ihA hB ihB Ξ1 ξ hξ /=.
-    apply P_Pi.
+  - qauto l:on ctrs:Par use:renaming, ξ_ok_up.
   (* Abs *)
-  - move => *. apply : P_AppAbs'; eauto. by asimpl.
+  - move => *. apply : P_AppAbs'; eauto; cycle 1.
+    rewrite -/ren_Term.
+    hauto l:on use:renaming, ξ_ok_up.
+    rewrite -/ren_Term.
+    hauto l:on use:renaming, ξ_ok_up.
+    by asimpl.
 Qed.
 
-Lemma par_ρ_ext a b ρ0 ρ1 :
-  a ⇒ b ->
-  (forall i, ρ0 i ⇒ ρ1 i) ->
-  (forall i, (a .: ρ0) i ⇒ (b .: ρ1) i).
+Lemma par_ρ_ext Ξ a b ρ0 ρ1 :
+  Par Ξ a b ->
+  (forall i, Par Ξ (ρ0 i) (ρ1 i)) ->
+  (forall i, Par Ξ ((a .: ρ0) i) ((b .: ρ1) i)).
 Proof. qauto l:on inv:nat. Qed.
 
-Lemma par_ρ_id ρ :
-  forall (i : nat), ρ i ⇒ ρ i.
+Lemma par_ρ_id Ξ ρ :
+  forall (i : nat), Par Ξ (ρ i) (ρ i).
 Proof. eauto using par_refl. Qed.
 
 Lemma par_ρ_up ρ0 ρ1 :
