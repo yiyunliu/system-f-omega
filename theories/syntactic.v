@@ -166,14 +166,15 @@ Proof.
   - qauto use:wt_inv.
   - move => Γ A s1 a B s2 hA ihA ha iha hB ihB U /wt_inv/=.
     move => [B0][s3][s4][hA'][ha'][hB0]hU.
-    suff : Pi A B ⇔ Pi A B0 by eauto using coherent_trans.
-    have : B ⇔ B0 by firstorder.
-    have : A ⇔ A by auto using coherent_refl.
-    admit.
-  - admit.
+    eauto using C_Pi, coherent_refl, coherent_trans.
+  - move => Γ a b A B ha iha hb ihb U /wt_inv/=.
+    move => [A0][B0][?][?]?.
+    apply : coherent_trans; eauto.
+    apply coherent_subst.
+    hauto lq:on use:coherent_pi_inj.
   - move => Γ A s1 B s2 hA ihA hB ihB U /wt_inv/=.
     move => [s3][s4][hA0][hB0]h.
     suff : ISort s2 ⇔ ISort s4 by eauto using coherent_trans.
     firstorder.
   - eauto using coherent_trans, coherent_sym.
-Admitted.
+Qed.

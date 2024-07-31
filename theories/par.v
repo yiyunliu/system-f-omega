@@ -265,6 +265,22 @@ Proof. hauto lq:on use:PS_App unfold:Coherent. Qed.
 Lemma C_Pi : ltac2:(gen_cong P_Pi Coherent).
 Proof. hauto lq:on use:PS_Pi unfold:Coherent. Qed.
 
+Lemma pars_pi_inv A B U :
+  Pi A B ⇒* U -> exists A0 B0, U = Pi A0 B0 /\ A ⇒* A0 /\ B ⇒* B0.
+Proof.
+  move E : (Pi A B) => T h.
+  move : A B E.
+  elim : T U/h.
+  hauto lq:on ctrs:rtc, Par.
+  hauto lq:on rew:off inv:Par ctrs:Par,rtc.
+Qed.
+
+Lemma coherent_pi_inj A0 A1 B0 B1 :
+  Pi A0 B0 ⇔ Pi A1 B1 ->
+  A0 ⇔ A1 /\
+  B0 ⇔ B1.
+Proof. hauto l:on inv:eq rew:off  ctrs:rtc use:pars_pi_inv unfold:Coherent. Qed.
+
 (* Based on https://poplmark-reloaded.github.io/coq/well-scoped/PR.sn_defs.html *)
 Inductive SN : Term -> Prop :=
 | S_Neu a : SNe a -> SN a
