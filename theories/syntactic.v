@@ -156,24 +156,51 @@ Proof.
   eauto using wt_subst.
 Qed.
 
+Variant Coherent' Γ : Term -> Term -> Prop :=
+| C_Refl a :
+  Coherent' Γ a a
+| C_Coherent a b s :
+  a ⇔ b ->
+  Γ ⊢ b ∈ ISort s ->
+  Coherent' Γ a b .
+
 Definition inv_spec Γ a A : Prop :=
   match a with
   | ISort Kind => False
-  | ISort Star => ISort Kind ⇔ A
-  | VarTm i => exists A0, Lookup i Γ A0 /\ A0 ⇔ A
-  | Abs A0 a => exists B s1 s2, Γ ⊢ A0 ∈ ISort s1 /\ A0 :: Γ ⊢ a ∈ B /\ A0 :: Γ ⊢ B ∈ ISort s2 /\ Pi A0 B ⇔ A
-  | App b a => exists A0 B, Γ ⊢ b ∈ Pi A0 B /\ Γ ⊢ a ∈ A0 /\ B[a…] ⇔ A
-  | Pi A0 B => exists s1 s2, Γ ⊢ A0 ∈ ISort s1 /\ A0::Γ ⊢ B ∈ ISort s2 /\ ISort s2 ⇔ A
+  | ISort Star => Coherent' Γ (ISort Kind) A
+  | VarTm i => exists A0, Lookup i Γ A0 /\ Coherent' Γ A0 A
+  | Abs A0 a => exists B s1 s2, Γ ⊢ A0 ∈ ISort s1 /\ A0 :: Γ ⊢ a ∈ B /\ A0 :: Γ ⊢ B ∈ ISort s2 /\ Coherent' Γ (Pi A0 B) A
+  | App b a => exists A0 B, Γ ⊢ b ∈ Pi A0 B /\ Γ ⊢ a ∈ A0 /\
+                        Coherent' Γ B[a…] A
+  | Pi A0 B => exists s1 s2, Γ ⊢ A0 ∈ ISort s1 /\ A0::Γ ⊢ B ∈ ISort s2 /\ Coherent' Γ (ISort s2) A
   end.
 
-Lemma inv_spec_conv Γ a A B : inv_spec Γ a A -> A ⇔ B -> inv_spec Γ a B.
+Lemma Coherent'_Coherent Γ A B C s :
+  Coherent' Γ A B -> B ⇔ C -> Γ ⊢ C ∈ ISort s -> Coherent' Γ A C.
 Proof.
-  case : a => //=; hauto lq:on rew:off use:coherent_trans.
+  hauto l:on inv:Coherent' ctrs:Coherent' use:coherent_trans.
+Qed.
+
+Lemma coherent'_coherent Γ A B s C :
+  Coherent' Γ A B -> Γ ⊢ A ∈ ISort s -> C ⇔ A -> Coherent' Γ C B.
+Proof.
+  inversion 1;
+    qauto l:on ctrs:Coherent' inv:Coherent' use:coherent_trans.
+Qed.
+
+Lemma coherent'_forget Γ A B :
+  Coherent' Γ A B -> Coherent A B.
+Proof.  qauto l:on inv:Coherent' use:coherent_refl. Qed.
+
+Lemma inv_spec_conv Γ a A B s :
+  inv_spec Γ a A -> A ⇔ B -> Γ ⊢ B ∈ ISort s -> inv_spec Γ a B.
+Proof.
+  case : a => //=; hauto lq:on ctrs:Coherent' use:Coherent'_Coherent.
 Qed.
 
 Lemma wt_inv Γ a A (h : Γ ⊢ a ∈ A) : inv_spec Γ a A.
 Proof.
-  elim : Γ a A /h=>//=; eauto 10 using coherent_refl, inv_spec_conv.
+  elim : Γ a A /h=>//=; eauto 10 using C_Refl, coherent_refl, inv_spec_conv.
 Qed.
 
 Lemma kind_imp Γ A :
@@ -189,20 +216,20 @@ Proof.
   elim : Γ t T /h.
   - move => Γ i A hΓ hi U /wt_inv //=.
     move => [A0][hA0]?.
-    suff : A = A0 by congruence.
+    suff : A = A0 by qauto l:on use:coherent'_forget.
     eauto using lookup_functional.
-  - qauto use:wt_inv.
+  - qauto use:wt_inv, coherent'_forget.
   - move => Γ A s1 a B s2 hA ihA ha iha hB ihB U /wt_inv/=.
     move => [B0][s3][s4][hA'][ha'][hB0]hU.
-    eauto using C_Pi, coherent_refl, coherent_trans.
+    eauto using C_Pi, coherent_refl, coherent_trans, coherent'_forget.
   - move => Γ a b A B ha iha hb ihb U /wt_inv/=.
     move => [A0][B0][?][?]?.
-    apply : coherent_trans; eauto.
+    apply : coherent_trans; eauto using coherent'_forget.
     apply coherent_subst.
     hauto lq:on use:coherent_pi_inj.
   - move => Γ A s1 B s2 hA ihA hB ihB U /wt_inv/=.
     move => [s3][s4][hA0][hB0]h.
-    suff : ISort s2 ⇔ ISort s4 by eauto using coherent_trans.
+    suff : ISort s2 ⇔ ISort s4 by eauto using coherent_trans, coherent'_forget.
     firstorder.
   - eauto using coherent_trans, coherent_sym.
 Qed.
@@ -225,7 +252,7 @@ Proof.
   - move => Γ a b A B ha iha hb ihb.
     case : ihb => //=.
     move => [s]/wt_inv/=.
-    move => [s1][s2][hA][hB]/coherent_sort_inj ?. subst.
+    move => [s1][s2][hA][hB]/coherent'_forget/coherent_sort_inj ?. subst.
     eauto using wt_subst_sort.
   - move => Γ A s1 B s2 hA ihA hB ihB.
     case : ihB; last by tauto.
@@ -237,19 +264,64 @@ Proof.
   - qauto use:coherent_sort_inj.
 Qed.
 
-Lemma wt_inv_sort Γ s A :
-  Γ ⊢ ISort s ∈ A ->
-  s = Star /\ A = ISort Kind.
+Lemma T_Conv' Γ a A B : Γ ⊢ a ∈ A -> Coherent' Γ A B -> Γ ⊢ a ∈ B.
+Proof. hauto l:on inv:Coherent' use:T_Conv. Qed.
+
+Lemma par_coherent a b : a ⇒ b \/ b ⇒ a -> a ⇔ b.
+Proof. hauto q:on ctrs:rtc unfold:Coherent. Qed.
+
+Lemma subject_reduction a b (h : a ⇒ b) :
+  forall Γ A, Γ ⊢ a ∈ A -> Γ ⊢ b ∈ A.
 Proof.
-  move E : (ISort s) => U h.
-  move : s E.
-  elim : Γ U A /h=>//=.
-  - move => *. split; congruence.
-  - move => Γ a A B s ha iha hB ihB ?.
-    move => s0 ?. subst.
-    specialize iha with (1 := eq_refl).
-    split.
-    + move /wt_inv : ha=>//=.
-      clear. case : s0 => //=.
-    + move : iha => [? ?]. subst.
+  elim:a b/h=>//=.
+  - move => A0 A1 a0 a1 hA ihA ha iha Γ A /wt_inv/=.
+    move => [B][s1][s2][hA0][ha0][hB]hE.
+    eapply T_Conv' with (A := Pi A1 B).
+    apply T_Abs with (s1 := s1) (s2 := s2); eauto.
+    apply iha.
+    (* context par *)
+    admit.
+    (* context par *)
+    admit.
+    apply : coherent'_coherent; eauto using T_Pi.
+    eauto using C_Pi, coherent_refl, par_coherent.
+  - move => A0 A1 B0 B1 hA ihA hB ihB Γ A /wt_inv //=.
+    move => [s1][s2][hA0][hB0]hE.
+    apply : T_Conv'; eauto.
+    apply : T_Pi; eauto.
+    apply ihB.
+    (* context par *)
+    admit.
+  - move => a0 a1 b0 b1 ha iha hb ihb Γ A /wt_inv //=.
+    move => [A0][B][ha0][hb0]hE.
+    apply T_Conv' with (A := B[b1…]).
+    apply : T_App; eauto.
+    move /regularity : ha0 => []//.
+    move => [s].
+    move /wt_inv => //=.
+    move => [s1][s2][hA0][hB0]hE'.
+    have ? : s2 = s by eauto using coherent'_forget, coherent_sort_inj.
+    subst.
+    eapply coherent'_coherent with (s := s) ; eauto.
+    eauto using wt_subst_sort.
+    qauto use:par_cong, par_refl, par_coherent.
+  - move => A a0 a1 b0 b1 ha iha hb ihb Γ A0 /wt_inv /=.
+    move => [A1][B][/wt_inv/=].
+    move => [B0][s1][s2][hA][ha0][hB0]hE [hb0]hE'.
 Admitted.
+(* Lemma wt_inv_sort Γ s A : *)
+(*   Γ ⊢ ISort s ∈ A -> *)
+(*   s = Star /\ A = ISort Kind. *)
+(* Proof. *)
+(*   move E : (ISort s) => U h. *)
+(*   move : s E. *)
+(*   elim : Γ U A /h=>//=. *)
+(*   - move => *. split; congruence. *)
+(*   - move => Γ a A B s ha iha hB ihB ?. *)
+(*     move => s0 ?. subst. *)
+(*     specialize iha with (1 := eq_refl). *)
+(*     split. *)
+(*     + move /wt_inv : ha=>//=. *)
+(*       clear. case : s0 => //=. *)
+(*     + move : iha => [? ?]. subst. *)
+(* Admitted. *)

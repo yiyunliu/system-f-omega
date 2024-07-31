@@ -1,4 +1,10 @@
-Require Export typing.
+Require Export typing par degree.
+
+Inductive Cls : Set :=
+| C_Atom : nat -> Cls
+| C_Branch : Cls -> Cls -> Cls.
+
+Definition CBasis := nat -> Cls.
 
 (* Try simplifying kind_interp using Barendregt's and Barass' methods of degrees *)
 
@@ -23,7 +29,10 @@ Proof.
   - hauto lq:on use:subst_one solve+:lia.
   - move => Γ a A B s ha iha hB ihB h.
     rewrite iha.
-    admit.
+    simpl in ihB.
+    case : s ihB hB => //=.
+    + admit.
+    +
   - inversion 1.
   - move => Γ A s hΓ ihΓ hA ihA i A0.
     elim /lookup_inv=>//=_.
@@ -35,7 +44,7 @@ Proof.
       erewrite ihΓ; eauto.
       apply renaming.
       case => //=.
-
+Admitted.
 
 Inductive Skel : Set :=
 | SK_Star : Skel

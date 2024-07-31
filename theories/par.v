@@ -1,42 +1,44 @@
-Require Export degree.
+Require Export imports.
 From Ltac2 Require Import Ltac2.
 Import Ltac2.Constr.
 Import Ltac2.Constr.Unsafe.
 Require Ltac2.Control.
 Set Default Proof Mode "Classic".
 
-Inductive Par Ξ : Term -> Term -> Prop :=
+Reserved Infix "⇒" (at level 70, no associativity).
+Inductive Par : Term -> Term -> Prop :=
 | P_Var i :
-  Par Ξ (VarTm i) (VarTm i)
+  VarTm i ⇒ VarTm i
 | P_Sort s :
-  Par Ξ (ISort s) (ISort s)
+  ISort s ⇒ ISort s
 | P_Abs A0 A1 a0 a1 :
-  Par Ξ A0 A1 ->
-  Par (degree Ξ A0 - 1 .: Ξ) a0 a1 ->
+  A0 ⇒ A1 ->
+  a0 ⇒ a1 ->
   (* ------------------- *)
-  Par Ξ (Abs A0 a0) (Abs A1 a1)
+  Abs A0 a0 ⇒ Abs A1 a1
 | P_Pi A0 A1 B0 B1 :
-  Par Ξ A0 A1 ->
-  Par (degree Ξ A0 - 1 .: Ξ) B0 B1 ->
+  A0 ⇒ A1 ->
+  B0 ⇒ B1 ->
   (* ------------------- *)
-  Par Ξ (Pi A0 B0) (Pi A1 B1)
+  Pi A0 B0 ⇒ Pi A1 B1
 | P_App a0 a1 b0 b1 :
-  Par Ξ a0 a1 ->
-  Par Ξ b0 b1 ->
-  Par Ξ (App a0 b0) (App a1 b1)
+  a0 ⇒ a1 ->
+  b0 ⇒ b1 ->
+  App a0 b0 ⇒ App a1 b1
 | P_AppAbs A a0 a1 b0 b1 :
-  Par (degree Ξ A - 1 .: Ξ) a0 a1 ->
-  Par Ξ b0 b1 ->
-  degree Ξ b1 = degree Ξ A - 1 ->
+  a0 ⇒ a1 ->
+  b0 ⇒ b1 ->
   (* -------------------- *)
-  Par Ξ (App (Abs A a0) b0) a1[b1…].
+  App (Abs A a0) b0 ⇒ a1[b1…]
+
+where "a ⇒ b" := (Par a b).
 
 #[export]Hint Constructors Par : par.
 
-Notation Pars := (fun Ξ => rtc (Par Ξ)).
+Infix "⇒*" := (rtc Par) (at level 70, no associativity).
 
-Lemma par_refl Ξ a : Par Ξ a a.
-Proof. elim : a Ξ; eauto with par. Qed.
+Lemma par_refl a : a ⇒ a.
+Proof. elim : a; eauto with par. Qed.
 
 Ltac2 binder_map (f : constr -> constr) (b : binder) : binder :=
   Binder.make (Binder.name b) (f (Binder.type b)).
@@ -114,18 +116,6 @@ Ltac revert_all_terms :=
 
 Ltac2 Notation "gen_cong" x(constr) r(constr) := Control.refine (fun _ => par_cong_rel x r).
 
-Lemma preservation Ξ a b : Par Ξ a b -> degree Ξ a = degree Ξ b.
-Proof.
-  move => h .
-  elim : Ξ a b / h => //=.
-  - qauto.
-  - qauto.
-  - move => Ξ A a0 a1 b0 b1 ha iha hb ihb h.
-    rewrite iha.
-    rewrite -h.
-    by apply subst_one.
-Qed.
-
 Ltac solve_s_rec :=
   move => *; eapply rtc_l; eauto;
          hauto lq:on ctrs:Par use:par_refl.
@@ -135,57 +125,42 @@ Ltac solve_pars_cong :=
             intros * x;
             revert_all_terms;
             induction x; last by solve_s_rec);
-  firstorder using rtc_refl.
-
-Lemma PS_App : ltac2:(gen_cong P_App Pars).
-Proof. solve_pars_cong. Qed.
-
-Lemma PS_Pi : ltac2:(gen_cong P_Pi Pars).
-Proof.
-  move => Ξ A0 + B0 B1 + h.
-  elim : B0 B1 /h; last by solve_s_rec.
-  move => B A1 h.
-  elim : A0 A1 / h; last by solve_s_rec.
   auto using rtc_refl.
-Qed.
 
-Lemma PS_Sort : ltac2:(gen_cong P_Sort Pars).
+Lemma PS_App : ltac2:(gen_cong P_App (rtc Par)).
 Proof. solve_pars_cong. Qed.
 
-Lemma P_AppAbs' Ξ A a0 a1 b0 b1 u :
+Lemma PS_Pi : ltac2:(gen_cong P_Pi (rtc Par)).
+Proof. solve_pars_cong. Qed.
+
+Lemma PS_Sort : ltac2:(gen_cong P_Sort (rtc Par)).
+Proof. solve_pars_cong. Qed.
+
+Lemma P_AppAbs' A a0 a1 b0 b1 u :
   u = a1[b1…] ->
-  Par (degree Ξ A -1 .: Ξ) a0 a1 ->
-  Par Ξ b0 b1 ->
-  degree Ξ b1 = degree Ξ A - 1 ->
+  a0 ⇒ a1 ->
+  b0 ⇒ b1 ->
   (* -------------------- *)
-  Par Ξ (App (Abs A a0) b0) u.
+  App (Abs A a0) b0 ⇒ u.
 Proof. move =>> ->. apply P_AppAbs. Qed.
 
-Lemma par_renaming Ξ0 Ξ1 a b ξ :
-  ξ_ok ξ Ξ0 Ξ1 ->
-  Par Ξ0 a b ->
-  Par Ξ1 a⟨ξ⟩ b⟨ξ⟩.
+Lemma par_renaming a b ξ :
+  a ⇒ b ->
+  a⟨ξ⟩ ⇒ b⟨ξ⟩.
 Proof.
-  move => + h. move : Ξ1  ξ. elim : Ξ0 a b/h; try solve [simpl;eauto with par].
-  - hauto lq:on ctrs:Par use:renaming, ξ_ok_up.
-  - qauto l:on ctrs:Par use:renaming, ξ_ok_up.
+  move => h. move : ξ. elim : a b/h => //=; eauto with par.
   (* Abs *)
-  - move => *. apply : P_AppAbs'; eauto; cycle 1.
-    rewrite -/ren_Term.
-    hauto l:on use:renaming, ξ_ok_up.
-    rewrite -/ren_Term.
-    hauto l:on use:renaming, ξ_ok_up.
-    by asimpl.
+  - move => *. apply : P_AppAbs'; eauto. by asimpl.
 Qed.
 
-Lemma par_ρ_ext Ξ a b ρ0 ρ1 :
-  Par Ξ a b ->
-  (forall i, Par Ξ (ρ0 i) (ρ1 i)) ->
-  (forall i, Par Ξ ((a .: ρ0) i) ((b .: ρ1) i)).
+Lemma par_ρ_ext a b ρ0 ρ1 :
+  a ⇒ b ->
+  (forall i, ρ0 i ⇒ ρ1 i) ->
+  (forall i, (a .: ρ0) i ⇒ (b .: ρ1) i).
 Proof. qauto l:on inv:nat. Qed.
 
-Lemma par_ρ_id Ξ ρ :
-  forall (i : nat), Par Ξ (ρ i) (ρ i).
+Lemma par_ρ_id ρ :
+  forall (i : nat), ρ i ⇒ ρ i.
 Proof. eauto using par_refl. Qed.
 
 Lemma par_ρ_up ρ0 ρ1 :
