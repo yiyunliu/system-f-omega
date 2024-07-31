@@ -1,6 +1,41 @@
-Require Export typing syntactic.
+Require Export typing.
 
 (* Try simplifying kind_interp using Barendregt's and Barass' methods of degrees *)
+
+
+(* Lemma b2d_lookup i Γ A : Lookup i Γ A -> ⊢ Γ -> degree (b2d Γ) A = b2d Γ i + 1. *)
+(* Proof. *)
+(*   move => h. elim : i Γ A / h. *)
+(*   - move => A Γ hΓ. simpl. *)
+(*     erewrite <-renaming; eauto. *)
+(*     rewrite /ξ_ok. case => //=. *)
+(*   - move => n Γ A B hn h. *)
+(*     simpl. *)
+(*     erewrite <-renaming; eauto. *)
+(*     rewrite /ξ_ok. case => //=. *)
+(* Qed. *)
+
+Lemma wt_degree :
+  (forall Γ a A,  Γ ⊢ a ∈ A -> degree (b2d Γ) a + 1 = degree (b2d Γ) A) /\
+  (forall Γ, ⊢ Γ -> forall i A, Lookup i Γ A -> b2d Γ i + 1 = degree (b2d Γ) A).
+Proof.
+  apply Wt_multind; eauto.
+  - hauto lq:on use:subst_one solve+:lia.
+  - move => Γ a A B s ha iha hB ihB h.
+    rewrite iha.
+    admit.
+  - inversion 1.
+  - move => Γ A s hΓ ihΓ hA ihA i A0.
+    elim /lookup_inv=>//=_.
+    + move => A1 Γ0 ? [*]. subst.
+      have -> : degree (b2d Γ) A - 1 + 1 = degree (b2d Γ) A
+        by hauto q:on solve+:lia.
+      apply renaming. case => //=.
+    + move => n Γ0 A1 B ? ? [*]. subst.
+      erewrite ihΓ; eauto.
+      apply renaming.
+      case => //=.
+
 
 Inductive Skel : Set :=
 | SK_Star : Skel

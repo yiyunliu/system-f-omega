@@ -30,6 +30,8 @@ Qed.
 Lemma lookup_functional n Γ A B : Lookup n Γ A -> Lookup n Γ B -> A = B.
 Proof. rewrite !LookupIff. congruence. Qed.
 
+Derive Inversion lookup_inv with (forall i Γ A, Lookup i Γ A) Sort Prop.
+
 Inductive Wt : Basis -> Term -> Term -> Prop :=
 | T_Var Γ i A :
   ⊢ Γ ->
@@ -74,12 +76,13 @@ with Wf : Basis -> Prop :=
   ⊢ nil
 
 | Wf_Cons Γ A s :
+  ⊢ Γ ->
   Γ ⊢ A ∈ ISort s ->
   (* ----------- *)
   ⊢ A :: Γ
 
 where "Γ ⊢ a ∈ A" := (Wt Γ a A) and "⊢ Γ" := (Wf Γ).
 
-Scheme Wt_ind_2 := Minimality for Wt Sort Prop
-    with Wf_ind_2 := Minimality for Wf Sort Prop.
+Scheme Wt_ind_2 := Induction for Wt Sort Prop
+    with Wf_ind_2 := Induction for Wf Sort Prop.
 Combined Scheme Wt_multind from Wt_ind_2, Wf_ind_2.
