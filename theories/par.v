@@ -1,4 +1,9 @@
 Require Export imports.
+From Ltac2 Require Import Ltac2.
+Import Ltac2.Constr.
+Import Ltac2.Constr.Unsafe.
+Require Ltac2.Control.
+Set Default Proof Mode "Classic".
 
 Reserved Infix "⇒" (at level 70, no associativity).
 Inductive Par : Term -> Term -> Prop :=
@@ -34,6 +39,123 @@ Infix "⇒*" := (rtc Par) (at level 70, no associativity).
 
 Lemma par_refl a : a ⇒ a.
 Proof. elim : a; eauto with par. Qed.
+
+Ltac2 binder_map (f : constr -> constr) (b : binder) : binder :=
+  Binder.make (Binder.name b) (f (Binder.type b)).
+
+Local Ltac2 map_invert (f : constr -> constr) (iv : case_invert) : case_invert :=
+  match iv with
+  | NoInvert => NoInvert
+  | CaseInvert indices => CaseInvert (Array.map f indices)
+  end.
+
+Ltac2 map (f : constr -> constr) (c : constr) : constr :=
+  match Unsafe.kind c with
+  | Rel _ | Meta _ | Var _ | Sort _ | Constant _ _ | Ind _ _
+  | Constructor _ _ | Uint63 _ | Float _  => c
+  | Cast c k t =>
+      let c := f c
+      with t := f t in
+      make (Cast c k t)
+  | Prod b c =>
+      let b := binder_map f b
+      with c := f c in
+      make (Prod b c)
+  | Lambda b c =>
+      let b := binder_map f b
+      with c := f c in
+      make (Lambda b c)
+  | LetIn b t c =>
+      let b := binder_map f b
+      with t := f t
+      with c := f c in
+      make (LetIn b t c)
+  | App c l =>
+      let c := f c
+      with l := Array.map f l in
+      make (App c l)
+  | Evar e l =>
+      let l := Array.map f l in
+      make (Evar e l)
+  | Case info x iv y bl =>
+      let x := match x with (x,x') => (f x, x') end
+      with iv := map_invert f iv
+      with y := f y
+      with bl := Array.map f bl in
+      make (Case info x iv y bl)
+  | Proj p r c =>
+      let c := f c in
+      make (Proj p r c)
+  | Fix structs which tl bl =>
+      let tl := Array.map (binder_map f) tl
+      with bl := Array.map f bl in
+      make (Fix structs which tl bl)
+  | CoFix which tl bl =>
+      let tl := Array.map (binder_map f) tl
+      with bl := Array.map f bl in
+      make (CoFix which tl bl)
+  | Array u t def ty =>
+      let ty := f ty
+      with t := Array.map f t
+      with def := f def in
+      make (Array u t def ty)
+  end.
+
+Ltac2 par_cong_rel c r :=
+  let rec go c :=
+    lazy_match! c with
+    | Par => r
+    | _ => map go c
+    end in go (type c).
+
+Ltac2 par_cong_rel_n c r n :=
+  let ic := Ref.ref 0 in
+  let rec go c :=
+    lazy_match! c with
+    | Par =>
+        let i := Ref.get ic in
+        Ref.incr ic;
+        if Int.equal i n then r else c
+    | _ => map go c
+    end in go (type c).
+
+Ltac2 revert_all_terms () :=
+  repeat (progress
+            (lazy_match! goal with
+               [a : Term |- _] => (revert $a)
+             end)).
+
+Lemma PS_App : ltac2:(Control.refine (fun _ => par_cong_rel 'P_App '(rtc Par))).
+Proof.
+  have : ltac2:(Control.refine (fun _ => par_cong_rel_n 'P_App '(rtc Par) 0)).
+  move => a0 a1 > h; ltac2:(revert_all_terms ()).
+  induction h. best use:P_App, rtc_refl.
+
+
+
+
+
+Lemma PS_Pi : ltac2:(gen_pars P_Pi).
+Proof.
+  move => A0 A1 > h.
+  ltac2:(revert_all_terms ()).
+  elim : A0 A1 /h.
+  - move => ? B0 B1 h.
+    elim : B0 B1 / h; first by auto using rtc_refl.
+    move => B0 B1 B2 hB0 hB1.
+    move : hB0.
+    elim : B1 B2 /hB1. best.
+
+  - intros * h0.
+    ltac2:(revert_all_terms ()).
+    induction h0.
+    apply : rtc_l.
+
+
+    eauto using rtc_transitive, par_refl, rtc_once.
+best ctrs:rtc use:rtc_transitive, par_refl.
+
+
 
 Lemma P_AppAbs' A a0 a1 b0 b1 u :
   u = a1[b1…] ->
