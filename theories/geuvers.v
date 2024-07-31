@@ -1,4 +1,4 @@
-Require Export typing.
+Require Export typing syntactic.
 
 Inductive Skel : Set :=
 | SK_Star : Skel
@@ -76,12 +76,6 @@ Inductive type_interp (Γ : Basis) (ξ : nat -> option {A : Skel & interp_skel A
   (forall a S, PF a S -> type_interp (A::Γ) (Some (existT Sk a) .: ξ) B SK_Star S) ->
   type_interp Γ ξ (Pi A B) SK_Star (ProdSpace S (InterSpace PF)).
 
-(* Lemma that gives the shape of a kind (excludes app) *)
-
-(* Lemma subject_reduction Γ a A  : *)
-(*   Γ ⊢ a ∈ A -> forall b, a ⇒ b -> Γ ⊢ b ∈ A. *)
-(* Proof. Admitted. *)
-
 (* Lemma kind_interp_eval Γ A B S : *)
 (*   kind_interp Γ A S -> A ⇒ B -> kind_interp Γ B S. *)
 (* Proof. *)
@@ -97,32 +91,34 @@ Proof.
   move E : (ISort Kind) => U h.
   move : E.
   elim : Γ A U /h=>//=.
-  - move => Γ i A h ?. subst.
-    (* Impossible because Kind doesn't have a sort *)
-    admit.
+  - hauto lq:on use: wf_lookup, kind_imp.
   - eauto using KI_Star.
   - move => Γ a b A B ha _ hb _ E.
     have : Γ ⊢ App b a ∈ B[a…] by  eauto using T_App.
-    (* Contradiction *)
-    admit.
+    case /regularity : hb=>//.
+    move => [s]/wt_inv /=.
+    move => [s1][s2]hA.
+    have ? : s2 = s by hauto l:on use:coherent_sort_inj. subst.
+    have : Γ ⊢ B[a…] ∈ ISort s by firstorder using wt_subst_sort.
+    rewrite -E.
+    firstorder using kind_imp.
   - move => Γ A s1 B s2 hA ihA hB ihB [?]. subst.
     specialize ihB with (1 := eq_refl).
     case : s1 hA ihA; hauto lq:on ctrs:kind_interp.
   - (* Impossible *)
     move => Γ a A B s ha iha hB ihB heq ?. subst.
     firstorder using kind_imp.
-Admitted.
+Qed.
 
 Lemma kind_interp_not_star Γ A S :
   kind_interp Γ A S ->
   ~ Γ ⊢ A ∈ ISort Star.
 Proof.
   move => h. elim : Γ A S /h.
-  - admit.
-  - move => Γ A B S0 S1 hA ihA hB ihB.
-    admit.
-  - move => Γ A B S hA ihA hB h.
-Admitted.
+  - hauto l:on use:wt_inv, coherent_sort_inj.
+  - hauto lq:on rew:off use:wt_inv, coherent_sort_inj.
+  - hauto lq:on rew:off use:wt_inv, coherent_sort_inj.
+Qed.
 
 Lemma kind_interp_functionality Γ A S0 S1 :
   kind_interp Γ A S0 -> kind_interp Γ A S1 -> S0 = S1.

@@ -207,11 +207,19 @@ Proof.
   - eauto using coherent_trans, coherent_sym.
 Qed.
 
+Lemma wf_lookup i Γ A : Lookup i Γ A -> ⊢ Γ -> exists s, Γ ⊢ A ∈ ISort s.
+Proof.
+  induction 1.
+  - hauto lq:on inv:Wf use:weakening_sort.
+  - inversion 1; subst.
+    hauto lq:on use:weakening_sort db:wf.
+Qed.
+
 Lemma regularity Γ a A  (h : Γ ⊢ a ∈ A) :
   (exists s, Γ ⊢ A ∈ ISort s) \/ (A = ISort Kind).
 Proof.
   elim : Γ a A /h.
-  - admit.
+  - firstorder using wf_lookup.
   - tauto.
   - qauto use:T_Pi.
   - move => Γ a b A B ha iha hb ihb.
@@ -226,4 +234,5 @@ Proof.
     move /wt_inv : hs => /=.
     case  : {hB} s2 => //= h.
     eauto using T_Star with wf.
-Admitted.
+  - qauto use:coherent_sort_inj.
+Qed.
