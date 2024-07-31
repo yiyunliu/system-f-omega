@@ -1,5 +1,7 @@
 Require Export typing syntactic.
 
+(* Try simplifying kind_interp using Barendregt's and Barass' methods of degrees *)
+
 Inductive Skel : Set :=
 | SK_Star : Skel
 | SK_Arr : Skel -> Skel -> Skel.
@@ -27,54 +29,58 @@ Definition ProdSpace (S0 S1 : Term -> Prop) b : Prop := forall a, S0 a -> S1 (Ap
 
 Definition InterSpace {A : Type} (S : A -> (Term -> Prop) -> Prop) (b : Term) : Prop := forall a S0, S a S0 -> S0 b.
 
-Inductive type_interp (Γ : Basis) (ξ : nat -> option {A : Skel & interp_skel A}) : Term -> forall (A : Skel), interp_skel A -> Prop :=
+(* TODO: Add conditions that say that the set is saturated *)
+Definition ρ_ok_kind (ρ : nat -> option {A : Skel & interp_skel A}) Γ :=
+  forall i A, Lookup i Γ A -> exists Sk S, kind_interp Γ A Sk /\ ρ i = Some (existT Sk S).
+
+Inductive type_interp (Γ : Basis) (ρ : nat -> option {A : Skel & interp_skel A}) : Term -> forall (A : Skel), interp_skel A -> Prop :=
 | TI_Star s :
-  type_interp Γ ξ (ISort s) SK_Star SN
+  type_interp Γ ρ (ISort s) SK_Star SN
 
 | TI_Var i Sk1 S :
-  Some (existT Sk1 S) = ξ i ->
-  type_interp Γ ξ (VarTm i) Sk1 S
+  Some (existT Sk1 S) = ρ i ->
+  type_interp Γ ρ (VarTm i) Sk1 S
 
 | TI_App P Q Sk1 Sk2 S1 S2 F :
-  type_interp Γ ξ P (SK_Arr Sk1 Sk2) F ->
-  type_interp Γ ξ Q Sk1 S1 ->
+  type_interp Γ ρ P (SK_Arr Sk1 Sk2) F ->
+  type_interp Γ ρ Q Sk1 S1 ->
   F S1 S2 ->
   (* -------------------- *)
-  type_interp Γ ξ (App P Q) Sk2 S2
+  type_interp Γ ρ (App P Q) Sk2 S2
 
 | TI_AppTm Sk P t A S  :
-  type_interp Γ ξ P Sk S ->
+  type_interp Γ ρ P Sk S ->
   Γ ⊢ t ∈ A ->
   Γ ⊢ A ∈ ISort Star ->
   (* ------------------------------- *)
-  type_interp Γ ξ (App P t) Sk S
+  type_interp Γ ρ (App P t) Sk S
 
 | TI_Abs A B Sk1 Sk2 PF :
   kind_interp Γ A Sk1 ->
   (forall a, exists S, PF a S) ->
-  (forall a S, PF a S -> type_interp (A::Γ) (Some (existT Sk1 a) .: ξ) B  Sk2 S) ->
+  (forall a S, PF a S -> type_interp (A::Γ) (Some (existT Sk1 a) .: ρ) B  Sk2 S) ->
   (* ------------------------------ *)
-  type_interp Γ ξ (Abs A B) (SK_Arr Sk1 Sk2) PF
+  type_interp Γ ρ (Abs A B) (SK_Arr Sk1 Sk2) PF
 
 | TI_AbsTm A B Sk S :
   Γ ⊢ A ∈ ISort Star ->
-  type_interp (A::Γ) (None .: ξ) B Sk S ->
+  type_interp (A::Γ) (None .: ρ) B Sk S ->
   (* ------------------------------------ *)
-  type_interp Γ ξ (Abs A B) Sk S
+  type_interp Γ ρ (Abs A B) Sk S
 
 | TI_Pi A B S1 S2:
   Γ ⊢ A ∈ ISort Star ->
-  type_interp Γ ξ A SK_Star S1 ->
-  type_interp (A::Γ) (None .: ξ) B SK_Star S2 ->
+  type_interp Γ ρ A SK_Star S1 ->
+  type_interp (A::Γ) (None .: ρ) B SK_Star S2 ->
   (* ------------------------------------------------------------- *)
-  type_interp Γ ξ (Pi A B) SK_Star (ProdSpace S1 S2)
+  type_interp Γ ρ (Pi A B) SK_Star (ProdSpace S1 S2)
 
 | TI_PiKind A Sk B S PF :
   kind_interp Γ A Sk ->
-  type_interp Γ ξ A SK_Star S  ->
+  type_interp Γ ρ A SK_Star S  ->
   (forall a, exists S, PF a S) ->
-  (forall a S, PF a S -> type_interp (A::Γ) (Some (existT Sk a) .: ξ) B SK_Star S) ->
-  type_interp Γ ξ (Pi A B) SK_Star (ProdSpace S (InterSpace PF)).
+  (forall a S, PF a S -> type_interp (A::Γ) (Some (existT Sk a) .: ρ) B SK_Star S) ->
+  type_interp Γ ρ (Pi A B) SK_Star (ProdSpace S (InterSpace PF)).
 
 (* Lemma kind_interp_eval Γ A B S : *)
 (*   kind_interp Γ A S -> A ⇒ B -> kind_interp Γ B S. *)
@@ -85,7 +91,7 @@ Inductive type_interp (Γ : Basis) (ξ : nat -> option {A : Skel & interp_skel A
 (*     admit. *)
 (* Admitted. *)
 
-Lemma wt_has_interp Γ A :
+Lemma kind_has_interp Γ A :
   Γ ⊢ A ∈ ISort Kind -> exists V, kind_interp Γ A V.
 Proof.
   move E : (ISort Kind) => U h.
@@ -134,3 +140,27 @@ Proof.
     by firstorder using kind_interp_not_star.
     sfirstorder.
 Qed.
+
+Lemma type_has_interp Γ A T Sk:
+  Γ ⊢ A ∈ T -> kind_interp Γ T Sk ->
+  forall ρ, ρ_ok_kind ρ Γ -> forall Sk0 S, type_interp Γ ρ A Sk0 S -> Sk = Sk0.
+Proof.
+  move => + + ρ + Sk0 S h.
+  move : Sk T.
+  elim : Γ ρ A Sk0 S /h.
+  - move => Γ ρ s Sk T /wt_inv_sort.
+    move => [? ?]. subst.
+    inversion 1.
+  - move => Γ ρ i sk S hi sk0 T hA hT hρ.
+    rewrite /ρ_ok_kind in hρ.
+    move /wt_inv : hA => /=.
+    move => [A0][hA0 ?].
+    move : hρ hA0 => /[apply].
+    move => [sk1]/=[S0][h0 h1].
+    rewrite h1 in hi.
+    case : hi => ?.
+    move => h. subst.
+    admit.
+  - move => Γ ρ P Q Sk1 Sk2 S1 S2.
+    rewrite -/interp_skel in S2 *.
+    best.

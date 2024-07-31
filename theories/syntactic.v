@@ -236,3 +236,20 @@ Proof.
     eauto using T_Star with wf.
   - qauto use:coherent_sort_inj.
 Qed.
+
+Lemma wt_inv_sort Γ s A :
+  Γ ⊢ ISort s ∈ A ->
+  s = Star /\ A = ISort Kind.
+Proof.
+  move E : (ISort s) => U h.
+  move : s E.
+  elim : Γ U A /h=>//=.
+  - move => *. split; congruence.
+  - move => Γ a A B s ha iha hB ihB ?.
+    move => s0 ?. subst.
+    specialize iha with (1 := eq_refl).
+    split.
+    + move /wt_inv : ha=>//=.
+      clear. case : s0 => //=.
+    + move : iha => [? ?]. subst.
+Admitted.
