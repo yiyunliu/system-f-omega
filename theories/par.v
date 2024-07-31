@@ -108,54 +108,33 @@ Ltac2 par_cong_rel c r :=
     | _ => map go c
     end in go (type c).
 
-Ltac2 par_cong_rel_n c r n :=
-  let ic := Ref.ref 0 in
-  let rec go c :=
-    lazy_match! c with
-    | Par =>
-        let i := Ref.get ic in
-        Ref.incr ic;
-        if Int.equal i n then r else c
-    | _ => map go c
-    end in go (type c).
-
-Ltac2 revert_all_terms () :=
+Ltac revert_all_terms :=
   repeat (progress
-            (lazy_match! goal with
-               [a : Term |- _] => (revert $a)
+            (match goal with
+               [_x : Term |- _] => (revert _x)
              end)).
 
-Lemma PS_App : ltac2:(Control.refine (fun _ => par_cong_rel 'P_App '(rtc Par))).
-Proof.
-  have : ltac2:(Control.refine (fun _ => par_cong_rel_n 'P_App '(rtc Par) 0)).
-  move => a0 a1 > h; ltac2:(revert_all_terms ()).
-  induction h. best use:P_App, rtc_refl.
+Ltac2 Notation "gen_cong" x(constr) r(constr) := Control.refine (fun _ => par_cong_rel x r).
 
+Ltac solve_s_rec :=
+  move => *; eapply rtc_l; eauto;
+         hauto lq:on ctrs:Par use:par_refl.
 
+Ltac solve_pars_cong :=
+  repeat (  let x := fresh "x" in
+            intros * x;
+            revert_all_terms;
+            induction x; last by solve_s_rec);
+  auto using rtc_refl.
 
+Lemma PS_App : ltac2:(gen_cong P_App (rtc Par)).
+Proof. solve_pars_cong. Qed.
 
+Lemma PS_Pi : ltac2:(gen_cong P_Pi (rtc Par)).
+Proof. solve_pars_cong. Qed.
 
-Lemma PS_Pi : ltac2:(gen_pars P_Pi).
-Proof.
-  move => A0 A1 > h.
-  ltac2:(revert_all_terms ()).
-  elim : A0 A1 /h.
-  - move => ? B0 B1 h.
-    elim : B0 B1 / h; first by auto using rtc_refl.
-    move => B0 B1 B2 hB0 hB1.
-    move : hB0.
-    elim : B1 B2 /hB1. best.
-
-  - intros * h0.
-    ltac2:(revert_all_terms ()).
-    induction h0.
-    apply : rtc_l.
-
-
-    eauto using rtc_transitive, par_refl, rtc_once.
-best ctrs:rtc use:rtc_transitive, par_refl.
-
-
+Lemma PS_Sort : ltac2:(gen_cong P_Sort (rtc Par)).
+Proof. solve_pars_cong. Qed.
 
 Lemma P_AppAbs' A a0 a1 b0 b1 u :
   u = a1[b1…] ->
@@ -279,6 +258,12 @@ Proof.
   have [abc [hab hbc]] : exists abc, ab ⇒* abc /\ bc ⇒* abc by firstorder.
   exists abc. eauto using rtc_transitive.
 Qed.
+
+Lemma C_App : ltac2:(gen_cong P_App Coherent).
+Proof. hauto lq:on use:PS_App unfold:Coherent. Qed.
+
+Lemma C_Pi : ltac2:(gen_cong P_Pi Coherent).
+Proof. hauto lq:on use:PS_Pi unfold:Coherent. Qed.
 
 (* Based on https://poplmark-reloaded.github.io/coq/well-scoped/PR.sn_defs.html *)
 Inductive SN : Term -> Prop :=
