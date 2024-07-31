@@ -275,11 +275,29 @@ Proof.
   hauto lq:on rew:off inv:Par ctrs:Par,rtc.
 Qed.
 
+Lemma pars_sort_inv s U :
+  ISort s ⇒* U -> U = ISort s.
+Proof.
+  move E : (ISort s) => T h.
+  move : s E.
+  elim : T U/h.
+  hauto lq:on ctrs:rtc, Par.
+  hauto lq:on rew:off inv:Par ctrs:Par,rtc.
+Qed.
+
 Lemma coherent_pi_inj A0 A1 B0 B1 :
   Pi A0 B0 ⇔ Pi A1 B1 ->
   A0 ⇔ A1 /\
   B0 ⇔ B1.
 Proof. hauto l:on inv:eq rew:off  ctrs:rtc use:pars_pi_inv unfold:Coherent. Qed.
+
+Lemma coherent_sort_inj s0 s1 :
+  ISort s0 ⇔ ISort s1 ->
+  s0 = s1.
+Proof.
+  move => [u][/pars_sort_inv h0 /pars_sort_inv h1].
+  congruence.
+Qed.
 
 (* Based on https://poplmark-reloaded.github.io/coq/well-scoped/PR.sn_defs.html *)
 Inductive SN : Term -> Prop :=

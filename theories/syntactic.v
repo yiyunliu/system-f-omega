@@ -66,6 +66,15 @@ Proof.
   hauto lq:on ctrs:Lookup unfold:ξ_ok.
 Qed.
 
+Lemma weakening_sort Γ a B s s0
+  (h0 : Γ ⊢ B ∈ ISort s)
+  (h1 : Γ ⊢ a  ∈ ISort s0) :
+  (B :: Γ) ⊢ a ⟨S⟩ ∈ ISort s0.
+Proof.
+  change (ISort s0) with (ISort s0) ⟨ S ⟩.
+  eauto using weakening.
+Qed.
+
 Definition ρ_ok ρ Γ Δ :=
   forall i A, Lookup i Γ A -> Δ ⊢ ρ i ∈ A [ ρ ].
 
@@ -128,6 +137,25 @@ Proof.
   - hauto q:on use:coherent_subst, T_Conv.
 Qed.
 
+Lemma wt_subst Γ a A b B
+  (h : Γ ⊢ a ∈ A )
+  (h0 : A :: Γ ⊢ b ∈ B) :
+  Γ ⊢ b[a…] ∈ B[a…].
+Proof.
+  apply : morphing; eauto with wf.
+  apply ρ_ext. by asimpl.
+  apply ρ_ok_id; eauto with wf.
+Qed.
+
+Lemma wt_subst_sort Γ a A b s
+  (h : Γ ⊢ a ∈ A )
+  (h0 : A :: Γ ⊢ b ∈ ISort s) :
+  Γ ⊢ b[a…] ∈ ISort s.
+Proof.
+  change (ISort s) with (ISort s)[a…].
+  eauto using wt_subst.
+Qed.
+
 Definition inv_spec Γ a A : Prop :=
   match a with
   | ISort Kind => False
@@ -178,3 +206,24 @@ Proof.
     firstorder.
   - eauto using coherent_trans, coherent_sym.
 Qed.
+
+Lemma regularity Γ a A  (h : Γ ⊢ a ∈ A) :
+  (exists s, Γ ⊢ A ∈ ISort s) \/ (A = ISort Kind).
+Proof.
+  elim : Γ a A /h.
+  - admit.
+  - tauto.
+  - qauto use:T_Pi.
+  - move => Γ a b A B ha iha hb ihb.
+    case : ihb => //=.
+    move => [s]/wt_inv/=.
+    move => [s1][s2][hA][hB]/coherent_sort_inj ?. subst.
+    eauto using wt_subst_sort.
+  - move => Γ A s1 B s2 hA ihA hB ihB.
+    case : ihB; last by tauto.
+    move => [s hs].
+    left.
+    move /wt_inv : hs => /=.
+    case  : {hB} s2 => //= h.
+    eauto using T_Star with wf.
+Admitted.
