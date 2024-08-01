@@ -1,4 +1,4 @@
-Require Export typing par degree.
+Require Export typing par degree syntactic.
 
 Inductive Cls : Set :=
 | C_Atom : nat -> Cls
@@ -21,6 +21,28 @@ Definition CBasis := nat -> Cls.
 (*     rewrite /ξ_ok. case => //=. *)
 (* Qed. *)
 
+Lemma preservation_degree a b : a ⇒ b -> forall Γ A,
+      Γ ⊢ a ∈ A -> degree (b2d Γ) a = degree (b2d Γ) b.
+Proof.
+  move => h .
+  elim : a b /h.
+  - done.
+  - done.
+  - hauto l:on drew:off use:subject_reduction, wt_inv.
+  - hauto l:on drew:off use:subject_reduction, wt_inv.
+  - hauto l:on drew:off use:subject_reduction, wt_inv.
+  - move => A a0 a1 b0 b1 ha iha hb ihb Γ A0 /wt_inv.
+    move => [A1][B][h0][h1]h2.
+    simpl.
+    set q := _ .: _.
+    have -> : q = b2d (A :: Γ) by qauto.
+    erewrite iha.
+    apply degree.morphing.
+    simpl.
+    apply degree.ρ_ext.
+    apply ρ_id.
+Admitted.
+
 Lemma wt_degree :
   (forall Γ a A,  Γ ⊢ a ∈ A -> degree (b2d Γ) a + 1 = degree (b2d Γ) A) /\
   (forall Γ, ⊢ Γ -> forall i A, Lookup i Γ A -> b2d Γ i + 1 = degree (b2d Γ) A).
@@ -31,8 +53,10 @@ Proof.
     rewrite iha.
     simpl in ihB.
     case : s ihB hB => //=.
-    + admit.
-    +
+    + move => hB.
+      have {}hB : degree (b2d Γ) B = 2 by lia.
+      simpl.
+    + best.
   - inversion 1.
   - move => Γ A s hΓ ihΓ hA ihA i A0.
     elim /lookup_inv=>//=_.
