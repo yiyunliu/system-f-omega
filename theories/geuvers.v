@@ -82,6 +82,83 @@ Fixpoint kind_int A :=
   | _ => SK_Unit
   end.
 
+Fixpoint infer_sig ρ A :=
+  match A with
+  | VarTm i => ρ i
+  | Abs A a => SK_Arr (kind_int A) (infer_sig (kind_int A .: ρ) a)
+  | App b a => match infer_sig ρ b with
+              | SK_Arr _ sk => sk
+              | _ => SK_Unit
+              end
+  | Pi A B => SK_Star
+  | ISort _ => SK_Star
+  end.
+
+Fixpoint skel_int a : Type :=
+  match a with
+  | SK_Unit => unit
+  | SK_Star => Term -> Prop
+  | SK_Arr S0 S1 =>
+      skel_int S0 -> skel_int S1
+  end.
+
+Fixpoint default_int (s : Skel) : skel_int s :=
+  match s as s return (skel_int s) with
+  | SK_Unit => tt
+  | SK_Star => SN
+  | SK_Arr s1 s2 => fun _ => default_int s2
+  end.
+
+Scheme Equality for Skel.
+
+Definition ProdSpace (S0 S1 : Term -> Prop) b : Prop := forall a, S0 a -> S1 (App b a).
+Definition InterSpace {A : Type} (S : A -> (Term -> Prop)) (b : Term) : Prop := forall a, S a b.
+
+Definition ρξ_lookup (ρ : nat -> Skel) (ξ : forall i, skel_int (ρ i))
+  (i : nat) (sk : Skel) : skel_int sk.
+  pose (ξ i) as r.
+  destruct (Skel_eq_dec (ρ i) sk).
+  - rewrite <- e. apply r.
+  - apply default_int.
+Defined.
+
+Definition ξ_ext (ρ : nat -> Skel) (ξ : forall i, skel_int (ρ i))
+  (sk : Skel) (r : skel_int sk) :
+  (forall i, skel_int ((sk .: ρ) i)).
+  destruct i as [|i].
+  apply r.
+  apply ξ.
+Defined.
+
+Fixpoint int_type_with_sig (ρ : nat -> Skel) (ξ : forall i, skel_int (ρ i))
+  (sk : Skel) (A : Term) : skel_int sk.
+  refine (
+      match A with
+      | VarTm i => ρξ_lookup ρ ξ i sk
+      | ISort _ => default_int sk
+      | Abs A a => match sk as s return (skel_int s) with
+                  | SK_Arr sk0 sk1 =>
+                      fun (v : skel_int sk0) =>
+                        int_type_with_sig (sk0 .: ρ) (ξ_ext ρ ξ sk0 v) sk1 a
+                  | SK_Unit => tt
+                  | SK_Star => default_int SK_Star
+                  end
+      | App b a => let sk0 := infer_sig ρ a in
+                    int_type_with_sig ρ ξ (SK_Arr sk0 sk) b
+                      (int_type_with_sig ρ ξ sk0 a)
+      | Pi A B => match sk as s return (skel_int s) with
+                 | SK_Star =>
+                     ProdSpace (int_type_with_sig ρ ξ SK_Star A)
+                       (InterSpace (fun (v : skel_int (kind_int A)) =>
+                                      int_type_with_sig (kind_int A .: ρ)
+                                        (ξ_ext ρ ξ _ v) SK_Star B))
+                 | SK_Unit => tt
+                 | SK_Arr sk0 sk1 => default_int (SK_Arr sk0 sk1)
+                 end
+      end
+    ).
+
+
 Lemma kind_has_int Γ A :
   Γ ⊢ A ∈ ISort Kind -> exists V, kind_int A = Some V.
 Proof.
@@ -158,17 +235,6 @@ Proof.
       hauto lq:on.
   - firstorder using app_kind_imp.
 Qed.
-
-Fixpoint skel_int a : Type :=
-  match a with
-  | SK_Star => Term -> Prop
-  | SK_Arr S0 S1 =>
-      skel_int S0 -> skel_int S1 -> Prop
-  end.
-
-Definition ProdSpace (S0 S1 : Term -> Prop) b : Prop := forall a, S0 a -> S1 (App b a).
-
-Definition InterSpace {A : Type} (S : A -> (Term -> Prop) -> Prop) (b : Term) : Prop := forall a S0, S a S0 -> S0 b.
 
 (* TODO: Add conditions that say that the set is saturated *)
 Definition ρ_ok_kind (ρ : nat -> option {A : Skel & skel_int A}) Γ :=
