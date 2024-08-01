@@ -112,6 +112,7 @@ Fixpoint default_int (s : Skel) : skel_int s :=
 Scheme Equality for Skel.
 
 Definition ProdSpace (S0 S1 : Term -> Prop) b : Prop := forall a, S0 a -> S1 (App b a).
+(* TODO: define cand *)
 Definition InterSpace {A : Type} (S : A -> (Term -> Prop)) (b : Term) : Prop := forall a, S a b.
 
 Definition ρξ_lookup (ρ : nat -> Skel) (ξ : forall i, skel_int (ρ i))
@@ -149,6 +150,7 @@ Fixpoint int_type_with_sig (ρ : nat -> Skel) (ξ : forall i, skel_int (ρ i))
       | Pi A B => match sk as s return (skel_int s) with
                  | SK_Star =>
                      ProdSpace (int_type_with_sig ρ ξ SK_Star A)
+
                        (InterSpace (fun (v : skel_int (kind_int A)) =>
                                       int_type_with_sig (kind_int A .: ρ)
                                         (ξ_ext ρ ξ _ v) SK_Star B))
