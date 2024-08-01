@@ -21,85 +21,149 @@ Definition CBasis := nat -> Cls.
 (*     rewrite /ξ_ok. case => //=. *)
 (* Qed. *)
 
-Lemma preservation_degree a b : a ⇒ b -> forall Γ A,
-      Γ ⊢ a ∈ A -> degree (b2d Γ) a = degree (b2d Γ) b.
-Proof.
-  move => h .
-  elim : a b /h.
-  - done.
-  - done.
-  - hauto l:on drew:off use:subject_reduction, wt_inv.
-  - hauto l:on drew:off use:subject_reduction, wt_inv.
-  - hauto l:on drew:off use:subject_reduction, wt_inv.
-  - move => A a0 a1 b0 b1 ha iha hb ihb Γ A0 /wt_inv.
-    move => [A1][B][h0][h1]h2.
-    simpl.
-    set q := _ .: _.
-    have -> : q = b2d (A :: Γ) by qauto.
-    erewrite iha.
-    apply degree.morphing.
-    simpl.
-    apply degree.ρ_ext.
-    apply ρ_id.
-Admitted.
+(* Lemma preservation_degree a b : a ⇒ b -> forall Γ A, *)
+(*       Γ ⊢ a ∈ A -> degree (b2d Γ) a = degree (b2d Γ) b. *)
+(* Proof. *)
+(*   move => h . *)
+(*   elim : a b /h. *)
+(*   - done. *)
+(*   - done. *)
+(*   - hauto l:on drew:off use:subject_reduction, wt_inv. *)
+(*   - hauto l:on drew:off use:subject_reduction, wt_inv. *)
+(*   - hauto l:on drew:off use:subject_reduction, wt_inv. *)
+(*   - move => A a0 a1 b0 b1 ha iha hb ihb Γ A0 /wt_inv. *)
+(*     move => [A1][B][h0][h1]h2. *)
+(*     simpl. *)
+(*     set q := _ .: _. *)
+(*     have -> : q = b2d (A :: Γ) by qauto. *)
+(*     erewrite iha. *)
+(*     apply degree.morphing. *)
+(*     simpl. *)
+(*     apply degree.ρ_ext. *)
+(*     apply ρ_id. *)
+(* Admitted. *)
 
-Lemma wt_degree :
-  (forall Γ a A,  Γ ⊢ a ∈ A -> degree (b2d Γ) a + 1 = degree (b2d Γ) A) /\
-  (forall Γ, ⊢ Γ -> forall i A, Lookup i Γ A -> b2d Γ i + 1 = degree (b2d Γ) A).
-Proof.
-  apply Wt_multind; eauto.
-  - hauto lq:on use:subst_one solve+:lia.
-  - move => Γ a A B s ha iha hB ihB h.
-    rewrite iha.
-    simpl in ihB.
-    case : s ihB hB => //=.
-    + move => hB.
-      have {}hB : degree (b2d Γ) B = 2 by lia.
-      simpl.
-    + best.
-  - inversion 1.
-  - move => Γ A s hΓ ihΓ hA ihA i A0.
-    elim /lookup_inv=>//=_.
-    + move => A1 Γ0 ? [*]. subst.
-      have -> : degree (b2d Γ) A - 1 + 1 = degree (b2d Γ) A
-        by hauto q:on solve+:lia.
-      apply renaming. case => //=.
-    + move => n Γ0 A1 B ? ? [*]. subst.
-      erewrite ihΓ; eauto.
-      apply renaming.
-      case => //=.
-Admitted.
+(* Lemma wt_degree : *)
+(*   (forall Γ a A,  Γ ⊢ a ∈ A -> degree (b2d Γ) a + 1 = degree (b2d Γ) A) /\ *)
+(*   (forall Γ, ⊢ Γ -> forall i A, Lookup i Γ A -> b2d Γ i + 1 = degree (b2d Γ) A). *)
+(* Proof. *)
+(*   apply Wt_multind; eauto. *)
+(*   - hauto lq:on use:subst_one solve+:lia. *)
+(*   - move => Γ a A B s ha iha hB ihB h. *)
+(*     rewrite iha. *)
+(*     simpl in ihB. *)
+(*     case : s ihB hB => //=. *)
+(*     + move => hB. *)
+(*       have {}hB : degree (b2d Γ) B = 2 by lia. *)
+(*       simpl. *)
+(*     + best. *)
+(*   - inversion 1. *)
+(*   - move => Γ A s hΓ ihΓ hA ihA i A0. *)
+(*     elim /lookup_inv=>//=_. *)
+(*     + move => A1 Γ0 ? [*]. subst. *)
+(*       have -> : degree (b2d Γ) A - 1 + 1 = degree (b2d Γ) A *)
+(*         by hauto q:on solve+:lia. *)
+(*       apply renaming. case => //=. *)
+(*     + move => n Γ0 A1 B ? ? [*]. subst. *)
+(*       erewrite ihΓ; eauto. *)
+(*       apply renaming. *)
+(*       case => //=. *)
+(* Admitted. *)
 
 Inductive Skel : Set :=
 | SK_Star : Skel
 | SK_Arr : Skel -> Skel -> Skel.
 
-Inductive kind_interp Γ : Term -> Skel -> Prop :=
-| KI_Star :
-  kind_interp Γ (ISort Star) SK_Star
-| KI_Imp A B S0 S1 :
-  kind_interp Γ A S0 ->
-  kind_interp (A::Γ) B S1 ->
-  kind_interp Γ (Pi A B) (SK_Arr S0 S1)
-| KI_Fun A B S :
-  Γ ⊢ A ∈ ISort Star ->
-  kind_interp (A::Γ) B S ->
-  kind_interp Γ (Pi A B) S.
 
-Fixpoint interp_skel a : Type :=
+Fixpoint kind_int A :=
+  match A with
+  | ISort Star => Some SK_Star
+  | Pi A B =>
+      match kind_int A with
+      | Some sk => option_map (SK_Arr sk) (kind_int B)
+      | None => kind_int B
+      end
+  | _ => None
+  end.
+
+Lemma kind_int_preservation A B  (h : A ⇒ B) :
+  forall sk, kind_int A = Some sk -> kind_int B = Some sk.
+Proof.
+  elim : A B / h=>//=.
+  - move => A0 A1 B0 B1 hA ihA hB ihB sk h.
+
+
+(* Definition has_kind_int A sk := kind_int A = Some sk. *)
+
+Lemma kind_has_int Γ A :
+  Γ ⊢ A ∈ ISort Kind -> exists V, kind_int A = Some V.
+Proof.
+  move E : (ISort Kind) => U h.
+  move : E.
+  elim : Γ A U /h=>//=.
+  - hauto lq:on use: wf_lookup, kind_imp.
+  - eauto using SK_Star.
+  - move => Γ a b A B ha _ hb _ E.
+    have : Γ ⊢ App b a ∈ B[a…] by  eauto using T_App.
+    case /regularity : hb=>//.
+    move => [s]/wt_inv /=.
+    move => [s1][s2]hA.
+    have ? : s2 = s by hauto l:on use:coherent_sort_inj, coherent'_forget. subst.
+    have : Γ ⊢ B[a…] ∈ ISort s by firstorder using wt_subst_sort.
+    rewrite -E.
+    firstorder using kind_imp.
+  - move => Γ A s1 B s2 hA ihA hB ihB [?]. subst.
+    specialize ihB with (1 := eq_refl).
+    case : s1 hA ihA; hauto q:on.
+  - (* Impossible *)
+    move => Γ a A B s ha iha hB ihB heq ?. subst.
+    firstorder using kind_imp.
+Qed.
+
+(* Inductive kind_interp Γ : Term -> Skel -> Prop := *)
+(* | KI_Star : *)
+(*   kind_interp Γ (ISort Star) SK_Star *)
+(* | KI_Imp A B S0 S1 : *)
+(*   kind_interp Γ A S0 -> *)
+(*   kind_interp (A::Γ) B S1 -> *)
+(*   kind_interp Γ (Pi A B) (SK_Arr S0 S1) *)
+(* | KI_Fun A B S : *)
+(*   Γ ⊢ A ∈ ISort Star -> *)
+(*   kind_interp (A::Γ) B S -> *)
+(*   kind_interp Γ (Pi A B) S. *)
+
+Fixpoint skel_int a : Type :=
   match a with
   | SK_Star => Term -> Prop
   | SK_Arr S0 S1 =>
-      interp_skel S0 -> interp_skel S1 -> Prop
+      skel_int S0 -> skel_int S1 -> Prop
   end.
 
-Definition ProdSpace (S0 S1 : Term -> Prop) b : Prop := forall a, S0 a -> S1 (App b a).
+(* Definition ProdSpace (S0 S1 : Term -> Prop) b : Prop := forall a, S0 a -> S1 (App b a). *)
 
-Definition InterSpace {A : Type} (S : A -> (Term -> Prop) -> Prop) (b : Term) : Prop := forall a S0, S a S0 -> S0 b.
+(* Definition InterSpace {A : Type} (S : A -> (Term -> Prop) -> Prop) (b : Term) : Prop := forall a S0, S a S0 -> S0 b. *)
 
 (* TODO: Add conditions that say that the set is saturated *)
-Definition ρ_ok_kind (ρ : nat -> option {A : Skel & interp_skel A}) Γ :=
-  forall i A, Lookup i Γ A -> exists Sk S, kind_interp Γ A Sk /\ ρ i = Some (existT Sk S).
+Definition ρ_ok_kind (ρ : nat -> option {A : Skel & skel_int A}) Γ :=
+  forall i (A : Term), Lookup i Γ A -> exists Sk S, kind_int A = Some Sk /\ ρ i = Some (existT Sk S).
+
+Fixpoint type_int (Γ : Basis)
+  (ρ : nat -> option {A : Skel & skel_int A}) (a : Term):
+  option {A : Skel & skel_int A}.
+  refine (
+      match a with
+      | ISort s => Some (existT SK_Star SN)
+      | VarTm i => ρ i
+      | App a b =>
+          match type_int Γ ρ a, type_int Γ ρ b with
+          | Some (existT sk1 S1), Some (existT sk2 S2) => _
+          | r, _ => r
+          end
+      | Abs A a =>
+          match kind_int A with
+      | _ => _
+      end
+    ).
 
 Inductive type_interp (Γ : Basis) (ρ : nat -> option {A : Skel & interp_skel A}) : Term -> forall (A : Skel), interp_skel A -> Prop :=
 | TI_Star s :
