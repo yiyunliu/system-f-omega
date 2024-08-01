@@ -71,29 +71,16 @@ Definition CBasis := nat -> Cls.
 (* Admitted. *)
 
 Inductive Skel : Set :=
+| SK_Unit : Skel
 | SK_Star : Skel
 | SK_Arr : Skel -> Skel -> Skel.
 
-
 Fixpoint kind_int A :=
   match A with
-  | ISort Star => Some SK_Star
-  | Pi A B =>
-      match kind_int A with
-      | Some sk => option_map (SK_Arr sk) (kind_int B)
-      | None => kind_int B
-      end
-  | _ => None
+  | ISort Star => SK_Star
+  | Pi A B => SK_Arr (kind_int A) (kind_int B)
+  | _ => SK_Unit
   end.
-
-Lemma kind_int_preservation A B  (h : A ⇒ B) :
-  forall sk, kind_int A = Some sk -> kind_int B = Some sk.
-Proof.
-  elim : A B / h=>//=.
-  - move => A0 A1 B0 B1 hA ihA hB ihB sk h.
-
-
-(* Definition has_kind_int A sk := kind_int A = Some sk. *)
 
 Lemma kind_has_int Γ A :
   Γ ⊢ A ∈ ISort Kind -> exists V, kind_int A = Some V.
@@ -120,17 +107,57 @@ Proof.
     firstorder using kind_imp.
 Qed.
 
-(* Inductive kind_interp Γ : Term -> Skel -> Prop := *)
-(* | KI_Star : *)
-(*   kind_interp Γ (ISort Star) SK_Star *)
-(* | KI_Imp A B S0 S1 : *)
-(*   kind_interp Γ A S0 -> *)
-(*   kind_interp (A::Γ) B S1 -> *)
-(*   kind_interp Γ (Pi A B) (SK_Arr S0 S1) *)
-(* | KI_Fun A B S : *)
-(*   Γ ⊢ A ∈ ISort Star -> *)
-(*   kind_interp (A::Γ) B S -> *)
-(*   kind_interp Γ (Pi A B) S. *)
+Lemma kind_no_int Γ A :
+  Γ ⊢ A ∈ ISort Star -> kind_int A = None.
+Proof.
+  elim : A Γ => //=.
+  - move => s Γ /wt_inv => //= h. exfalso.
+    case : s h=>//=.
+    hauto q:on use:coherent'_forget, coherent_sort_inj.
+  - move => A ihA B ihB Γ /wt_inv /=.
+    move => [s1][s2][hA][hB]E.
+    have ? : s2 = Star by eauto using coherent'_forget, coherent_sort_inj. subst.
+    hauto lq:on.
+Qed.
+
+Lemma app_kind_imp Γ b a :
+  ~ Γ ⊢ App b a ∈ ISort Kind.
+Proof.
+  move /wt_inv => //=.
+  move => [A0][B][hb][ha]he.
+  move /regularity : hb => []//=.
+  move => [s]/wt_inv => //=.
+  move => [s1][s2][hA0][hB]hc.
+  have ? : s2 = s by eauto using coherent'_forget, coherent_sort_inj. subst.
+  have {}hB: Γ ⊢ B[a…] ∈ ISort s by sfirstorder use:wt_subst_sort.
+  inversion he; subst;
+  hauto q:on use:kind_imp.
+Qed.
+
+Lemma kind_int_preservation A B  (h : A ⇒ B) :
+  forall Γ,  Γ ⊢ A ∈ ISort Kind ->
+   kind_int A = kind_int B.
+Proof.
+  elim : A B / h; try done.
+  - move => A0 A1 B0 B1 hA ihA hB ihB Γ hs.
+    rewrite [kind_int]lock; move /wt_inv : hs => //=; rewrite -lock.
+    move => [s1][s2][hA0][hB0]h.
+    have ? : s2 = Kind by qauto use:coherent'_forget, coherent_sort_inj. subst.
+    (* have : Γ ⊢ A1 ∈ ISort s1 by eauto using subject_reduction. *)
+    case : s1 hA0.
+    + move /[dup] /kind_has_int => [sk1 h0] ?.
+      simpl.
+      have -> : kind_int A1 = Some sk1 by sfirstorder.
+      rewrite h0.
+      f_equal.
+      apply : ihB; eauto.
+    + move => ?.
+      simpl.
+      have : kind_int A0 = None by eauto using kind_no_int.
+      have : kind_int A1 = None by eauto using kind_no_int, subject_reduction.
+      hauto lq:on.
+  - firstorder using app_kind_imp.
+Qed.
 
 Fixpoint skel_int a : Type :=
   match a with
@@ -139,33 +166,37 @@ Fixpoint skel_int a : Type :=
       skel_int S0 -> skel_int S1 -> Prop
   end.
 
-(* Definition ProdSpace (S0 S1 : Term -> Prop) b : Prop := forall a, S0 a -> S1 (App b a). *)
+Definition ProdSpace (S0 S1 : Term -> Prop) b : Prop := forall a, S0 a -> S1 (App b a).
 
-(* Definition InterSpace {A : Type} (S : A -> (Term -> Prop) -> Prop) (b : Term) : Prop := forall a S0, S a S0 -> S0 b. *)
+Definition InterSpace {A : Type} (S : A -> (Term -> Prop) -> Prop) (b : Term) : Prop := forall a S0, S a S0 -> S0 b.
 
 (* TODO: Add conditions that say that the set is saturated *)
 Definition ρ_ok_kind (ρ : nat -> option {A : Skel & skel_int A}) Γ :=
   forall i (A : Term), Lookup i Γ A -> exists Sk S, kind_int A = Some Sk /\ ρ i = Some (existT Sk S).
 
-Fixpoint type_int (Γ : Basis)
-  (ρ : nat -> option {A : Skel & skel_int A}) (a : Term):
-  option {A : Skel & skel_int A}.
-  refine (
-      match a with
-      | ISort s => Some (existT SK_Star SN)
-      | VarTm i => ρ i
-      | App a b =>
-          match type_int Γ ρ a, type_int Γ ρ b with
-          | Some (existT sk1 S1), Some (existT sk2 S2) => _
-          | r, _ => r
-          end
-      | Abs A a =>
-          match kind_int A with
-      | _ => _
-      end
-    ).
+(* Fixpoint type_int (Γ : Basis) *)
+(*   (ρ : nat -> option {A : Skel & skel_int A}) (a : Term): *)
+(*   option {A : Skel & skel_int A}. *)
+(*   refine ( *)
+(*       match a with *)
+(*       | ISort s => Some (existT SK_Star SN) *)
+(*       | VarTm i => ρ i *)
+(*       | App a b => *)
+(*           match type_int Γ ρ a, type_int Γ ρ b with *)
+(*           | Some (existT sk1 S1), Some (existT sk2 S2) => _ *)
+(*           | r, _ => r *)
+(*           end *)
+(*       | Abs A a => *)
+(*           match kind_int A with *)
+(*           | Some sk => *)
 
-Inductive type_interp (Γ : Basis) (ρ : nat -> option {A : Skel & interp_skel A}) : Term -> forall (A : Skel), interp_skel A -> Prop :=
+(*           | None => _ *)
+(*           end *)
+(*       | _ => _ *)
+(*       end *)
+(*     ). *)
+
+Inductive type_interp (Γ : Basis) (ρ : nat -> option {A : Skel & skel_int A}) : Term -> forall (A : Skel), skel_int A -> Prop :=
 | TI_Star s :
   type_interp Γ ρ (ISort s) SK_Star SN
 
@@ -188,40 +219,32 @@ Inductive type_interp (Γ : Basis) (ρ : nat -> option {A : Skel & interp_skel A
   type_interp Γ ρ (App P t) Sk S
 
 | TI_Abs A B Sk1 Sk2 PF :
-  kind_interp Γ A Sk1 ->
+  kind_int A = Some Sk1 ->
   (forall a, exists S, PF a S) ->
   (forall a S, PF a S -> type_interp (A::Γ) (Some (existT Sk1 a) .: ρ) B  Sk2 S) ->
   (* ------------------------------ *)
   type_interp Γ ρ (Abs A B) (SK_Arr Sk1 Sk2) PF
 
 | TI_AbsTm A B Sk S :
-  Γ ⊢ A ∈ ISort Star ->
+  kind_int A = None ->
   type_interp (A::Γ) (None .: ρ) B Sk S ->
   (* ------------------------------------ *)
   type_interp Γ ρ (Abs A B) Sk S
 
 | TI_Pi A B S1 S2:
-  Γ ⊢ A ∈ ISort Star ->
+  kind_int A = None ->
   type_interp Γ ρ A SK_Star S1 ->
   type_interp (A::Γ) (None .: ρ) B SK_Star S2 ->
   (* ------------------------------------------------------------- *)
   type_interp Γ ρ (Pi A B) SK_Star (ProdSpace S1 S2)
 
 | TI_PiKind A Sk B S PF :
-  kind_interp Γ A Sk ->
+  kind_int A = Some Sk ->
   type_interp Γ ρ A SK_Star S  ->
   (forall a, exists S, PF a S) ->
   (forall a S, PF a S -> type_interp (A::Γ) (Some (existT Sk a) .: ρ) B SK_Star S) ->
   type_interp Γ ρ (Pi A B) SK_Star (ProdSpace S (InterSpace PF)).
 
-(* Lemma kind_interp_eval Γ A B S : *)
-(*   kind_interp Γ A S -> A ⇒ B -> kind_interp Γ B S. *)
-(* Proof. *)
-(*   move => h. move : B. elim : Γ A S /h. *)
-(*   - hauto l:on inv:Par. *)
-(*   - move => Γ A B S0 S1 hA ihA hB ihB. *)
-(*     admit. *)
-(* Admitted. *)
 
 Lemma kind_has_interp Γ A :
   Γ ⊢ A ∈ ISort Kind -> exists V, kind_interp Γ A V.
