@@ -77,7 +77,7 @@ Inductive Skel : Set :=
 
 Fixpoint kind_int A :=
   match A with
-  | ISort Star => SK_Star
+  | ISort _ => SK_Star
   | Pi A B =>
       match kind_int B with
       | SK_Unit => SK_Unit
@@ -215,7 +215,7 @@ Lemma kind_int_typ Γ A :
   kind_int A = SK_Unit.
 Proof.
   elim : A Γ => //=.
-  - case => //=.
+  - case => //=;
     move => Γ /wt_inv //=.
     hauto q:on use:coherent'_forget, coherent_sort_inj.
   - move => A ihA B ihB Γ.
@@ -249,6 +249,52 @@ Lemma infer_sig_sound Γ a A (h : Γ ⊢ a ∈ A) :
   Γ ⊢ A ∈ ISort Kind ->
   infer_sig (b2s Γ) a = kind_int A.
 Proof.
+  elim : a Γ A h => //=.
+  - admit.
+  (* impossible: type constructor can't have this form *)
+  - admit.
+  - move => a iha b ihb Γ A ha hA.
+    move /kind_caseP : hA => //=.
+    move /wt_inv : ha => //=.
+    move => [B][s1][s2][ha][hb][hB]hE.
+    inversion 1; subst.
+    (* consistency *)
+    + admit.
+    + erewrite kind_pi_tm; eauto.
+      f_equal.
+      * admit.
+      * move /(_ (a :: Γ) B0) in ihb.
+        rewrite ihb=>//.
+        (* T_Conv' *)
+        admit.
+        (* T_Conv'? *)
+        admit.
+    + erewrite kind_pi_kind; eauto.
+      f_equal.
+      (* V stable under evaluation *)
+      * admit.
+      * move /(_ (a :: Γ) B0) in ihb.
+        rewrite ihb=>//; eauto.
+        admit.
+        admit.
+  - move => b ihb a iha Γ A hba hA.
+    move /wt_inv : hba => //=.
+    move => [A0][B][hb][ha]hE.
+    move /kind_caseP : hA.
+    inversion 1; subst.
+    + simpl.
+      move /regularity : (hb).
+      case => //.
+      move => [s]hPi.
+      case : s hPi =>//=.
+      * move/[dup] => ?. move : ihb hb => /[apply] /[apply] ->.
+        erewrite kind_pi_kind => //=; eauto.
+
+
+
+
+
+
   elim : Γ a A / h => //=.
   - admit.
   - hauto q:on use:coherent'_forget, coherent_sort_inj, wt_inv.
