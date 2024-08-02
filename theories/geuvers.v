@@ -77,8 +77,12 @@ Inductive Skel : Set :=
 
 Fixpoint kind_int A :=
   match A with
-  | ISort _ => SK_Star
-  | Pi A B => SK_Arr (kind_int A) (kind_int B)
+  | ISort Star => SK_Star
+  | Pi A B =>
+      match kind_int B with
+      | SK_Unit => SK_Unit
+      | _ => SK_Arr (kind_int A) (kind_int B)
+      end
   | _ => SK_Unit
   end.
 
@@ -164,23 +168,106 @@ Fixpoint b2s Γ :=
   | A :: Γ => kind_int A .: b2s Γ
   end.
 
+Inductive kind_case Γ U : Prop :=
+| S_Sort : U = ISort Star -> kind_case Γ U
+| S_PiTm A B : U = Pi A B -> Γ ⊢ A ∈ ISort Star ->
+               A :: Γ ⊢ B ∈ ISort Kind -> kind_case Γ U
+| S_PiKd A B : U = Pi A B -> Γ ⊢ A ∈ ISort Kind ->
+               A :: Γ ⊢ B ∈ ISort Kind -> kind_case Γ U.
+
+#[export]Hint Constructors kind_case : kcase.
+
+Lemma app_kind_imp Γ b a :
+  ~ Γ ⊢ App b a ∈ ISort Kind.
+Proof.
+  move /wt_inv => //=.
+  move => [A0][B][hb][ha]he.
+  move /regularity : hb => []//=.
+  move => [s]/wt_inv => //=.
+  move => [s1][s2][hA0][hB]hc.
+  have ? : s2 = s by eauto using coherent'_forget, coherent_sort_inj. subst.
+  have {}hB: Γ ⊢ B[a…] ∈ ISort s by sfirstorder use:wt_subst_sort.
+  inversion he; subst;
+  hauto q:on use:kind_imp.
+Qed.
+
+Lemma kind_caseP Γ U : Γ ⊢ U ∈ ISort Kind -> kind_case Γ U.
+Proof.
+  move E : (ISort Kind) => T h.
+  move : E. case : Γ U T/h.
+  - hauto lq:on use:wf_lookup, kind_imp, T_Var.
+  - eauto using S_Sort.
+  - congruence.
+  - move => Γ a b A B ha hb h.
+    have : Γ ⊢ App b a ∈ B[a…] by eauto using T_App.
+    rewrite -h.
+    by move /app_kind_imp.
+  - move => Γ A s1 B s2 hA  hB [?]. subst.
+    case : s1 hA; eauto with kcase.
+  - qauto using kind_imp.
+Qed.
+
+Lemma kind_sort : kind_int (ISort Star) = SK_Star.
+Proof. done. Qed.
+
+Lemma kind_int_typ Γ A :
+  Γ ⊢ A ∈ ISort Star ->
+  kind_int A = SK_Unit.
+Proof.
+  elim : A Γ => //=.
+  - case => //=.
+    move => Γ /wt_inv //=.
+    hauto q:on use:coherent'_forget, coherent_sort_inj.
+  - move => A ihA B ihB Γ.
+    move /wt_inv => //=.
+    move => [s1[s2 [hA [hB hE]]]].
+    case : s2 hB hE => //=.
+    + hauto q:on use:coherent'_forget, coherent_sort_inj.
+    + hauto lq:on.
+Qed.
+
+Lemma kind_has_interp Γ A :
+  Γ ⊢ A ∈ ISort Kind ->
+  kind_int A <> SK_Unit.
+Proof.
+  elim : A Γ =>//=; hauto q:on inv:kind_case use:kind_caseP.
+Qed.
+
+Lemma kind_pi_tm Γ Δ A B :
+  Δ ⊢ B ∈ ISort Kind ->
+  Γ ⊢ A ∈ ISort Star -> kind_int (Pi A B) = SK_Arr SK_Unit (kind_int B).
+Proof.
+  hauto lq:on rew:off use:kind_has_interp, kind_int_typ.
+Qed.
+
+Lemma kind_pi_kind Γ Δ A B :
+  Δ ⊢ B ∈ ISort Kind ->
+  Γ ⊢ A ∈ ISort Kind -> kind_int (Pi A B) = SK_Arr (kind_int A) (kind_int B).
+Proof. hauto q:on use:kind_has_interp. Qed.
+
 Lemma infer_sig_sound Γ a A (h : Γ ⊢ a ∈ A) :
   Γ ⊢ A ∈ ISort Kind ->
   infer_sig (b2s Γ) a = kind_int A.
 Proof.
-  elim : Γ a A /h => //=.
+  elim : Γ a A / h => //=.
   - admit.
   - hauto q:on use:coherent'_forget, coherent_sort_inj, wt_inv.
   - move => Γ a b A B ha iha hb ihb hB.
-    rewrite ihb.
     move /regularity : hb.
     case => //=.
+    move => [s hs].
     admit.
-    have : kind_int B =
-
   - move => Γ a A B s ha iha hB ihB hE.
-    rewrite iha.
-    admit.
+    case  /kind_caseP => ?. subst.
+    + move /wt_inv : hB =>/= ?.
+      have ? : s = Kind by hauto l:on use:coherent'_forget, coherent_sort_inj.
+      subst.
+      move /regularity : ha => //=.
+      case => //=.
+      * admit.
+      * move => ?. subst. hauto l:on use:coherent_sort_inj.
+    + move => B0 ? ?. subst.
+      simpl.
 
 
 Lemma kind_has_int Γ A :
@@ -219,20 +306,6 @@ Proof.
     move => [s1][s2][hA][hB]E.
     have ? : s2 = Star by eauto using coherent'_forget, coherent_sort_inj. subst.
     hauto lq:on.
-Qed.
-
-Lemma app_kind_imp Γ b a :
-  ~ Γ ⊢ App b a ∈ ISort Kind.
-Proof.
-  move /wt_inv => //=.
-  move => [A0][B][hb][ha]he.
-  move /regularity : hb => []//=.
-  move => [s]/wt_inv => //=.
-  move => [s1][s2][hA0][hB]hc.
-  have ? : s2 = s by eauto using coherent'_forget, coherent_sort_inj. subst.
-  have {}hB: Γ ⊢ B[a…] ∈ ISort s by sfirstorder use:wt_subst_sort.
-  inversion he; subst;
-  hauto q:on use:kind_imp.
 Qed.
 
 Lemma kind_int_preservation A B  (h : A ⇒ B) :
