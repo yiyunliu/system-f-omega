@@ -77,7 +77,7 @@ Inductive Skel : Set :=
 
 Fixpoint kind_int A :=
   match A with
-  | ISort Star => SK_Star
+  | ISort _ => SK_Star
   | Pi A B => SK_Arr (kind_int A) (kind_int B)
   | _ => SK_Unit
   end.
@@ -132,8 +132,7 @@ Definition ξ_ext (ρ : nat -> Skel) (ξ : forall i, skel_int (ρ i))
 Defined.
 
 Fixpoint int_type_with_sig (ρ : nat -> Skel) (ξ : forall i, skel_int (ρ i))
-  (sk : Skel) (A : Term) : skel_int sk.
-  refine (
+  (sk : Skel) (A : Term) : skel_int sk :=
       match A with
       | VarTm i => ρξ_lookup ρ ξ i sk
       | ISort _ => default_int sk
@@ -157,8 +156,31 @@ Fixpoint int_type_with_sig (ρ : nat -> Skel) (ξ : forall i, skel_int (ρ i))
                  | SK_Unit => tt
                  | SK_Arr sk0 sk1 => default_int (SK_Arr sk0 sk1)
                  end
-      end
-    ).
+      end.
+
+Fixpoint b2s Γ :=
+  match Γ with
+  | nil => fun _ => SK_Unit
+  | A :: Γ => kind_int A .: b2s Γ
+  end.
+
+Lemma infer_sig_sound Γ a A (h : Γ ⊢ a ∈ A) :
+  Γ ⊢ A ∈ ISort Kind ->
+  infer_sig (b2s Γ) a = kind_int A.
+Proof.
+  elim : Γ a A /h => //=.
+  - admit.
+  - hauto q:on use:coherent'_forget, coherent_sort_inj, wt_inv.
+  - move => Γ a b A B ha iha hb ihb hB.
+    rewrite ihb.
+    move /regularity : hb.
+    case => //=.
+    admit.
+    have : kind_int B =
+
+  - move => Γ a A B s ha iha hB ihB hE.
+    rewrite iha.
+    admit.
 
 
 Lemma kind_has_int Γ A :
