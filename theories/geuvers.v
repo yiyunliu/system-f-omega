@@ -1,74 +1,4 @@
-Require Export typing par degree syntactic.
-
-Inductive Cls : Set :=
-| C_Atom : nat -> Cls
-| C_Branch : Cls -> Cls -> Cls.
-
-Definition CBasis := nat -> Cls.
-
-(* Try simplifying kind_interp using Barendregt's and Barass' methods of degrees *)
-
-
-(* Lemma b2d_lookup i Γ A : Lookup i Γ A -> ⊢ Γ -> degree (b2d Γ) A = b2d Γ i + 1. *)
-(* Proof. *)
-(*   move => h. elim : i Γ A / h. *)
-(*   - move => A Γ hΓ. simpl. *)
-(*     erewrite <-renaming; eauto. *)
-(*     rewrite /ξ_ok. case => //=. *)
-(*   - move => n Γ A B hn h. *)
-(*     simpl. *)
-(*     erewrite <-renaming; eauto. *)
-(*     rewrite /ξ_ok. case => //=. *)
-(* Qed. *)
-
-(* Lemma preservation_degree a b : a ⇒ b -> forall Γ A, *)
-(*       Γ ⊢ a ∈ A -> degree (b2d Γ) a = degree (b2d Γ) b. *)
-(* Proof. *)
-(*   move => h . *)
-(*   elim : a b /h. *)
-(*   - done. *)
-(*   - done. *)
-(*   - hauto l:on drew:off use:subject_reduction, wt_inv. *)
-(*   - hauto l:on drew:off use:subject_reduction, wt_inv. *)
-(*   - hauto l:on drew:off use:subject_reduction, wt_inv. *)
-(*   - move => A a0 a1 b0 b1 ha iha hb ihb Γ A0 /wt_inv. *)
-(*     move => [A1][B][h0][h1]h2. *)
-(*     simpl. *)
-(*     set q := _ .: _. *)
-(*     have -> : q = b2d (A :: Γ) by qauto. *)
-(*     erewrite iha. *)
-(*     apply degree.morphing. *)
-(*     simpl. *)
-(*     apply degree.ρ_ext. *)
-(*     apply ρ_id. *)
-(* Admitted. *)
-
-(* Lemma wt_degree : *)
-(*   (forall Γ a A,  Γ ⊢ a ∈ A -> degree (b2d Γ) a + 1 = degree (b2d Γ) A) /\ *)
-(*   (forall Γ, ⊢ Γ -> forall i A, Lookup i Γ A -> b2d Γ i + 1 = degree (b2d Γ) A). *)
-(* Proof. *)
-(*   apply Wt_multind; eauto. *)
-(*   - hauto lq:on use:subst_one solve+:lia. *)
-(*   - move => Γ a A B s ha iha hB ihB h. *)
-(*     rewrite iha. *)
-(*     simpl in ihB. *)
-(*     case : s ihB hB => //=. *)
-(*     + move => hB. *)
-(*       have {}hB : degree (b2d Γ) B = 2 by lia. *)
-(*       simpl. *)
-(*     + best. *)
-(*   - inversion 1. *)
-(*   - move => Γ A s hΓ ihΓ hA ihA i A0. *)
-(*     elim /lookup_inv=>//=_. *)
-(*     + move => A1 Γ0 ? [*]. subst. *)
-(*       have -> : degree (b2d Γ) A - 1 + 1 = degree (b2d Γ) A *)
-(*         by hauto q:on solve+:lia. *)
-(*       apply renaming. case => //=. *)
-(*     + move => n Γ0 A1 B ? ? [*]. subst. *)
-(*       erewrite ihΓ; eauto. *)
-(*       apply renaming. *)
-(*       case => //=. *)
-(* Admitted. *)
+Require Export typing par syntactic.
 
 Inductive Skel : Set :=
 | SK_Unit : Skel
@@ -280,79 +210,14 @@ Proof.
   - move => b ihb a iha Γ A hba hA.
     move /wt_inv : hba => //=.
     move => [A0][B][hb][ha]hE.
-    move /kind_caseP : hA.
-    inversion 1; subst.
-    + simpl.
-      move /regularity : (hb).
-      case => //.
-      move => [s]hPi.
-      case : s hPi =>//=.
-      * move/[dup] => ?. move : ihb hb => /[apply] /[apply] ->.
-        erewrite kind_pi_kind => //=; eauto.
-
-
-
-
-
-
-  elim : Γ a A / h => //=.
-  - admit.
-  - hauto q:on use:coherent'_forget, coherent_sort_inj, wt_inv.
-  - move => Γ a b A B ha iha hb ihb hB.
-    move /regularity : hb.
-    case => //=.
-    move => [s hs].
+    have h : Γ ⊢ Pi A0 B ∈ ISort Kind by admit.
+    move : ihb (h)(hb); repeat move /[apply].
+    move => ->/=.
+    suff : kind_int B = kind_int A by qauto l:on use:kind_has_interp.
     admit.
-  - move => Γ a A B s ha iha hB ihB hE.
-    case  /kind_caseP => ?. subst.
-    + move /wt_inv : hB =>/= ?.
-      have ? : s = Kind by hauto l:on use:coherent'_forget, coherent_sort_inj.
-      subst.
-      move /regularity : ha => //=.
-      case => //=.
-      * admit.
-      * move => ?. subst. hauto l:on use:coherent_sort_inj.
-    + move => B0 ? ?. subst.
-      simpl.
-
-
-Lemma kind_has_int Γ A :
-  Γ ⊢ A ∈ ISort Kind -> exists V, kind_int A = Some V.
-Proof.
-  move E : (ISort Kind) => U h.
-  move : E.
-  elim : Γ A U /h=>//=.
-  - hauto lq:on use: wf_lookup, kind_imp.
-  - eauto using SK_Star.
-  - move => Γ a b A B ha _ hb _ E.
-    have : Γ ⊢ App b a ∈ B[a…] by  eauto using T_App.
-    case /regularity : hb=>//.
-    move => [s]/wt_inv /=.
-    move => [s1][s2]hA.
-    have ? : s2 = s by hauto l:on use:coherent_sort_inj, coherent'_forget. subst.
-    have : Γ ⊢ B[a…] ∈ ISort s by firstorder using wt_subst_sort.
-    rewrite -E.
-    firstorder using kind_imp.
-  - move => Γ A s1 B s2 hA ihA hB ihB [?]. subst.
-    specialize ihB with (1 := eq_refl).
-    case : s1 hA ihA; hauto q:on.
-  - (* Impossible *)
-    move => Γ a A B s ha iha hB ihB heq ?. subst.
-    firstorder using kind_imp.
-Qed.
-
-Lemma kind_no_int Γ A :
-  Γ ⊢ A ∈ ISort Star -> kind_int A = None.
-Proof.
-  elim : A Γ => //=.
-  - move => s Γ /wt_inv => //= h. exfalso.
-    case : s h=>//=.
-    hauto q:on use:coherent'_forget, coherent_sort_inj.
-  - move => A ihA B ihB Γ /wt_inv /=.
-    move => [s1][s2][hA][hB]E.
-    have ? : s2 = Star by eauto using coherent'_forget, coherent_sort_inj. subst.
-    hauto lq:on.
-Qed.
+  - move => A ihA B ihB Γ U.
+    admit.
+Admitted.
 
 Lemma kind_int_preservation A B  (h : A ⇒ B) :
   forall Γ,  Γ ⊢ A ∈ ISort Kind ->
