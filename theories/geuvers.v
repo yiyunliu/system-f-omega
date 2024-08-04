@@ -175,14 +175,99 @@ Lemma kind_pi_kind Γ Δ A B :
   Γ ⊢ A ∈ ISort Kind -> kind_int (Pi A B) = SK_Arr (kind_int A) (kind_int B).
 Proof. hauto q:on use:kind_has_interp. Qed.
 
+Lemma kind_int_renaming A ξ :
+  kind_int A = kind_int A ⟨ξ⟩.
+Proof.
+  elim : A ξ => //=; qauto l:on.
+Qed.
+
+Lemma lookup_kind_int i Γ A : Lookup i Γ A -> kind_int A = b2s Γ i.
+Proof.
+  move => h.
+  elim : i Γ A /h=>//=.
+  - eauto using kind_int_renaming.
+  - move => n Γ A _ hn <-.
+    eauto using kind_int_renaming.
+Qed.
+
+Derive Inversion kcase_inv with (forall Γ A, kind_case Γ A).
+Derive Inversion par_inv with (forall A B, A ⇒ B).
+
+Lemma kind_int_preservation Γ a b :
+  Γ ⊢ a ∈ ISort Kind  -> a ⇒ b ->
+  kind_int a = kind_int b.
+Proof.
+  elim : a Γ b.
+  - hauto q:on inv:kind_case use:kind_caseP.
+  - hauto q:on inv:kind_case, Par use:kind_caseP.
+  - hauto q:on inv:kind_case use:kind_caseP.
+  - hauto q:on inv:kind_case use:kind_caseP.
+  - move => A ihA B ihB Γ T /kind_caseP.
+    elim /kcase_inv=>//_.
+    + move => A0 B0 [? ?] hA0 hB0. subst.
+      elim/par_inv => //_.
+      move => A1 A2 B1 B2 h0 h1 [*]. subst.
+      have ? : Γ ⊢ A2 ∈ ISort Star by eauto using subject_reduction.
+      have ? : (A0::Γ) ⊢ B2 ∈ ISort Kind by eauto using subject_reduction.
+      do 2 (erewrite kind_pi_tm; eauto).
+      qauto.
+    + move => A0 B0 [? ?] hA0 hB0.
+      elim /par_inv=>//_.
+      move => A1 A2 B1 B2 h0 h1 [*]. subst.
+      have ? : Γ ⊢ A2 ∈ ISort Kind by eauto using subject_reduction.
+      have ? : (A0::Γ) ⊢ B2 ∈ ISort Kind by eauto using subject_reduction.
+      do 2 (erewrite kind_pi_kind; eauto).
+      qauto.
+Qed.
+
+Lemma kind_int_preservation_star Γ a b :
+  Γ ⊢ a ∈ ISort Kind  -> a ⇒* b ->
+  kind_int a = kind_int b.
+Proof.
+  move => + h.
+  elim : a b / h => //=.
+  - hauto lq:on ctrs:rtc use:subject_reduction, kind_int_preservation.
+Qed.
+
+Lemma kind_int_coherent Γ a b :
+  Γ ⊢ a ∈ ISort Kind ->
+  Γ ⊢ b ∈ ISort Kind ->
+  a ⇔ b ->
+  kind_int a = kind_int b.
+Proof.
+  rewrite /Coherent.
+  hauto lq:on use:kind_int_preservation_star.
+Qed.
+
+Lemma coherent_term Γ a A b B :
+  Γ ⊢ a ∈ A ->
+  Γ ⊢ b ∈ B ->
+  Coherent a b -> Coherent A B.
+Admitted.
+
+Lemma coherent_sort Γ B s A' B' :
+  Γ ⊢ B ∈ ISort s ->
+  Coherent B B' ->
+  Γ ⊢ A' ∈  B' ->
+  Γ ⊢ B' ∈ ISort s.
+Proof.
+Admitted.
+
 Lemma infer_sig_sound Γ a A (h : Γ ⊢ a ∈ A) :
   Γ ⊢ A ∈ ISort Kind ->
   infer_sig (b2s Γ) a = kind_int A.
 Proof.
   elim : a Γ A h => //=.
-  - admit.
+  - move => n Γ A /wt_inv /=.
+    move => [A0 [hA0 hE]] hA.
+    suff : kind_int A = kind_int A0 by qauto use:lookup_kind_int.
+    have ? : ⊢ Γ by eauto with wf.
+    have [s hA1]  : exists s, Γ ⊢ A0 ∈ ISort s by qauto use:wf_lookup.
+    have : Coherent (ISort Kind) (ISort s) by hauto q:on use:coherent_term, coherent'_forget.
+    move /coherent_sort_inj => ?. subst.
+    hauto q:on use: kind_int_coherent, coherent'_forget.
   (* impossible: type constructor can't have this form *)
-  - admit.
+  - move => s Γ A hs.
   - move => a iha b ihb Γ A ha hA.
     move /kind_caseP : hA => //=.
     move /wt_inv : ha => //=.
