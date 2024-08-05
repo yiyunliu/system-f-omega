@@ -243,7 +243,8 @@ Lemma coherent_term Γ a A b B :
   Γ ⊢ a ∈ A ->
   Γ ⊢ b ∈ B ->
   Coherent a b -> Coherent A B.
-Admitted.
+Proof.
+
 
 Lemma coherent_sort Γ B s A' B' :
   Γ ⊢ B ∈ ISort s ->

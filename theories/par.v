@@ -180,6 +180,17 @@ Proof.
     apply : P_AppAbs'; eauto using par_ρ_up. by asimpl.
 Qed.
 
+Lemma pars_morphing a b ρ0 ρ1 :
+  (forall i, ρ0 i ⇒ ρ1 i) ->
+  a ⇒* b ->
+  a[ρ0] ⇒* b[ρ1].
+Proof.
+  move => h.
+  move => h0.
+  elim : a b /h0=>//=;
+    eauto using par_morphing, par_refl, rtc_once, rtc_l.
+Qed.
+
 Function tstar a :=
   match a with
   | ISort _ => a
@@ -233,6 +244,7 @@ Qed.
 
 Definition Coherent a b := exists c, a ⇒* c /\ b ⇒* c.
 Infix "⇔" := Coherent (at level 70, no associativity).
+
 
 Lemma coherent_renaming a b ξ :
   a ⇔ b ->

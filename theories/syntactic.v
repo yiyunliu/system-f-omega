@@ -270,6 +270,42 @@ Proof. hauto l:on inv:Coherent' use:T_Conv. Qed.
 Lemma par_coherent a b : a ⇒ b \/ b ⇒ a -> a ⇔ b.
 Proof. hauto q:on ctrs:rtc unfold:Coherent. Qed.
 
+Lemma context_equiv A0 A1 s Γ a B :
+  A1 ⇔ A0 ->
+  Γ ⊢ A1 ∈ ISort s ->
+  A0 :: Γ ⊢ a ∈ B ->
+  A1 :: Γ ⊢ a ∈ B.
+Proof.
+  move => ? ? /[dup] /wt_wf ?.
+  have ? : ⊢ A1 :: Γ by eauto with wf.
+  have ? : ⊢ Γ by hauto lq:on inv:Wf.
+  have [s0 ?] : exists s, Γ ⊢ A0 ∈ ISort s by hauto lq:on inv:Wf db:wf.
+  move /morphing.
+  move /(_ _ ids). asimpl. apply=>//.
+  rewrite /ρ_ok.
+  move => i A.
+  elim /lookup_inv=>//=_.
+  - move => A2 Γ0 ? [*]. subst.
+    asimpl. renamify.
+    apply T_Conv with (A := A1⟨S⟩) (s := s0).
+    apply T_Var; eauto using Here.
+    apply : weakening_sort; eauto.
+    by apply coherent_renaming.
+  - move => n Γ0 A2 B0 ? ? [*]. subst.
+    asimpl.
+    renamify.
+    change (VarTm (S n)) with (VarTm n)⟨S⟩.
+    apply : weakening; eauto.
+    apply T_Var => //=.
+Qed.
+
+Lemma context_par A0 A1 s Γ a B :
+  A0 ⇒ A1 ->
+  Γ ⊢ A1 ∈ ISort s ->
+  A0 :: Γ ⊢ a ∈ B ->
+  A1 :: Γ ⊢ a ∈ B.
+Proof. eauto using context_equiv, par_coherent. Qed.
+
 Lemma subject_reduction a b (h : a ⇒ b) :
   forall Γ A, Γ ⊢ a ∈ A -> Γ ⊢ b ∈ A.
 Proof.
@@ -279,10 +315,8 @@ Proof.
     eapply T_Conv' with (A := Pi A1 B).
     apply T_Abs with (s1 := s1) (s2 := s2); eauto.
     apply iha.
-    (* context par *)
-    admit.
-    (* context par *)
-    admit.
+    by eauto using context_par.
+    qauto l:on use:context_par.
     apply : coherent'_coherent; eauto using T_Pi.
     eauto using C_Pi, coherent_refl, par_coherent.
   - move => A0 A1 B0 B1 hA ihA hB ihB Γ A /wt_inv //=.
@@ -290,8 +324,7 @@ Proof.
     apply : T_Conv'; eauto.
     apply : T_Pi; eauto.
     apply ihB.
-    (* context par *)
-    admit.
+    qauto l:on use:context_par.
   - move => a0 a1 b0 b1 ha iha hb ihb Γ A /wt_inv //=.
     move => [A0][B][ha0][hb0]hE.
     apply T_Conv' with (A := B[b1…]).
@@ -308,20 +341,21 @@ Proof.
   - move => A a0 a1 b0 b1 ha iha hb ihb Γ A0 /wt_inv /=.
     move => [A1][B][/wt_inv/=].
     move => [B0][s1][s2][hA][ha0][hB0]hE [hb0]hE'.
-Admitted.
-(* Lemma wt_inv_sort Γ s A : *)
-(*   Γ ⊢ ISort s ∈ A -> *)
-(*   s = Star /\ A = ISort Kind. *)
-(* Proof. *)
-(*   move E : (ISort s) => U h. *)
-(*   move : s E. *)
-(*   elim : Γ U A /h=>//=. *)
-(*   - move => *. split; congruence. *)
-(*   - move => Γ a A B s ha iha hB ihB ?. *)
-(*     move => s0 ?. subst. *)
-(*     specialize iha with (1 := eq_refl). *)
-(*     split. *)
-(*     + move /wt_inv : ha=>//=. *)
-(*       clear. case : s0 => //=. *)
-(*     + move : iha => [? ?]. subst. *)
-(* Admitted. *)
+    have /iha h := (ha0).
+    have h2 : Γ ⊢ b1 ∈ A1 by eauto.
+    apply : T_Conv'; eauto.
+    have [? ?] : B0 ⇔ B /\ A ⇔ A1 by qauto l:on use:coherent'_forget, coherent_pi_inj.
+    have ? : Γ ⊢ b1 ∈ A by hauto lq:on use:T_Conv, coherent'_forget, coherent_sym.
+    have : Γ ⊢ a1[b1…] ∈ B0[b1…] by eauto using wt_subst.
+    have [s] : exists s, Γ ⊢ Pi A1 B ∈ ISort s
+        by inversion hE; subst; eauto using T_Pi.
+    move /wt_inv => //=.
+    move => [s3][s4][hA0][hB1]hE0.
+    have : Γ ⊢ B[b0…] ∈ ISort s4 by eauto using wt_subst_sort.
+    move => *.
+    apply : T_Conv; eauto.
+    have /coherent_sym ? : B [b0…] ⇔ B[b1…]
+      by eauto using par_coherent, par_cong, par_refl.
+    apply : coherent_trans; eauto.
+    qauto l:on use:coherent_subst.
+Qed.
