@@ -193,6 +193,44 @@ Qed.
 Derive Inversion kcase_inv with (forall Γ A, kind_case Γ A).
 Derive Inversion par_inv with (forall A B, A ⇒ B).
 
+Lemma kind_int_morphing A Γ Δ ρ :
+  ⊢ Δ ->
+  ρ_ok ρ Γ Δ ->
+  Γ ⊢ A ∈ ISort Kind ->
+  kind_int A = kind_int A[ρ].
+Proof.
+  elim : A Γ Δ ρ => //.
+  - hauto q:on use:kind_caseP inv:kind_case.
+  - move => A ihA B ihB Γ Δ ρ hΔ hρ.
+    move /kind_caseP.
+    elim /kcase_inv => //_.
+    + move => A0 B0 [*]. subst.
+      rewrite [kind_int]lock /= -lock.
+      have ? : Δ ⊢ A0[ρ] ∈ ISort Star by eauto using morphing_sort.
+      have ? : ⊢ A0[ρ]::Δ by eauto with wf.
+      have ? : ρ_ok (up_Term_Term ρ) (A0::Γ) (A0[ρ]::Δ) by hauto l:on use:ρ_up.
+      qauto l:on use:kind_pi_tm.
+    + move => A0 B0 [*]. subst.
+      rewrite [kind_int]lock /= -lock.
+      have ? : Δ ⊢ A0[ρ] ∈ ISort Kind by eauto using morphing_sort.
+      have ? : ⊢ A0[ρ]::Δ by eauto with wf.
+      have ? : ρ_ok (up_Term_Term ρ) (A0::Γ) (A0[ρ]::Δ) by hauto l:on use:ρ_up.
+      have ? :  A0[ρ]::Δ ⊢ B0 [up_Term_Term ρ] ∈ ISort Kind by eauto using morphing_sort.
+      hauto lq:on use:kind_pi_kind.
+Qed.
+
+Lemma kind_int_subst Γ a A B :
+  ⊢ Γ ->
+  A::Γ ⊢ B ∈ ISort Kind ->
+  Γ ⊢ a ∈ A ->
+  kind_int B = kind_int B[a…].
+Proof.
+  move => hΓ hB ha.
+  apply : kind_int_morphing; eauto.
+  apply ρ_ext. by asimpl.
+  by apply ρ_ok_id.
+Qed.
+
 Lemma kind_int_preservation Γ a b :
   Γ ⊢ a ∈ ISort Kind  -> a ⇒ b ->
   kind_int a = kind_int b.
@@ -278,7 +316,6 @@ Proof.
     have : Coherent (ISort Kind) (ISort s) by hauto q:on use:coherent_term, coherent'_forget.
     move /coherent_sort_inj => ?. subst.
     hauto q:on use: kind_int_coherent, coherent'_forget.
-  (* impossible: type constructor can't have this form *)
   - move => s Γ A /wt_inv //=.
     case : s => //=.
     move /coherent'_forget => [c] ?.
@@ -346,8 +383,14 @@ Proof.
     move : ihb (h)(hb); repeat move /[apply].
     move => ->/=.
     suff : kind_int B = kind_int A by qauto l:on use:kind_has_interp.
-    (* Need a coherent subst term lemma *)
-    admit.
+    move /wt_inv : h=>//=.
+    move => [s1][s2][hA0][hB]hE'.
+    have ? : s2 = Kind by qauto use:coherent'_forget, coherent_sort_inj. subst.
+    have ? : Γ ⊢ B[a…] ∈ ISort Kind by eauto using wt_subst_sort.
+    have ? : kind_int B[a…] = kind_int A by qauto use:coherent'_forget, kind_int_coherent.
+    transitivity (kind_int B[a…])=>//.
+    apply : kind_int_subst; eauto.
+    eauto with wf.
   - move => A ihA B ihB Γ U hA hU.
     move /wt_inv : hA => //=.
     move => [s1][s2][hA][hB]/coherent'_forget hE.
@@ -356,36 +399,10 @@ Proof.
     + done.
     + hauto l:on use:pars_pi_inv, pars_sort_inv unfold:Coherent.
     + hauto l:on use:pars_pi_inv, pars_sort_inv unfold:Coherent.
-Admitted.
-
-Lemma kind_int_preservation A B  (h : A ⇒ B) :
-  forall Γ,  Γ ⊢ A ∈ ISort Kind ->
-   kind_int A = kind_int B.
-Proof.
-  elim : A B / h; try done.
-  - move => A0 A1 B0 B1 hA ihA hB ihB Γ hs.
-    rewrite [kind_int]lock; move /wt_inv : hs => //=; rewrite -lock.
-    move => [s1][s2][hA0][hB0]h.
-    have ? : s2 = Kind by qauto use:coherent'_forget, coherent_sort_inj. subst.
-    (* have : Γ ⊢ A1 ∈ ISort s1 by eauto using subject_reduction. *)
-    case : s1 hA0.
-    + move /[dup] /kind_has_int => [sk1 h0] ?.
-      simpl.
-      have -> : kind_int A1 = Some sk1 by sfirstorder.
-      rewrite h0.
-      f_equal.
-      apply : ihB; eauto.
-    + move => ?.
-      simpl.
-      have : kind_int A0 = None by eauto using kind_no_int.
-      have : kind_int A1 = None by eauto using kind_no_int, subject_reduction.
-      hauto lq:on.
-  - firstorder using app_kind_imp.
 Qed.
 
-(* TODO: Add conditions that say that the set is saturated *)
-Definition ρ_ok_kind (ρ : nat -> option {A : Skel & skel_int A}) Γ :=
-  forall i (A : Term), Lookup i Γ A -> exists Sk S, kind_int A = Some Sk /\ ρ i = Some (existT Sk S).
+(* Definition ρ_ok_kind (ρ : nat ->  {A : Skel & skel_int A}) Γ := *)
+(*   forall i (A : Term), Lookup i Γ A -> exists Sk S, kind_int A = Sk /\ ρ i = (existT Sk S). *)
 
 (* Fixpoint type_int (Γ : Basis) *)
 (*   (ρ : nat -> option {A : Skel & skel_int A}) (a : Term): *)

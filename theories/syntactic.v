@@ -137,6 +137,12 @@ Proof.
   - hauto q:on use:coherent_subst, T_Conv.
 Qed.
 
+Lemma morphing_sort Γ a s (h : Γ ⊢ a ∈ ISort s) : forall Δ ρ,
+    ρ_ok ρ Γ Δ ->
+    ⊢ Δ ->
+    Δ ⊢ a[ρ] ∈ ISort s.
+Proof. hauto lq:on use:morphing. Qed.
+
 Lemma wt_subst Γ a A b B
   (h : Γ ⊢ a ∈ A )
   (h0 : A :: Γ ⊢ b ∈ B) :
