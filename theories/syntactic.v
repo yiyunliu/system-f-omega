@@ -359,3 +359,9 @@ Proof.
     apply : coherent_trans; eauto.
     qauto l:on use:coherent_subst.
 Qed.
+
+Lemma subject_reduction_star a b (h : a ⇒* b) :
+  forall Γ A, Γ ⊢ a ∈ A -> Γ ⊢ b ∈ A.
+Proof.
+  induction h; eauto using subject_reduction, rtc_refl, rtc_l.
+Qed.

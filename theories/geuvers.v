@@ -244,7 +244,8 @@ Lemma coherent_term Γ a A b B :
   Γ ⊢ b ∈ B ->
   Coherent a b -> Coherent A B.
 Proof.
-
+  qauto l:on use:subject_reduction_star, wt_unique.
+Qed.
 
 Lemma coherent_sort Γ B s A' B' :
   Γ ⊢ B ∈ ISort s ->
@@ -252,7 +253,17 @@ Lemma coherent_sort Γ B s A' B' :
   Γ ⊢ A' ∈  B' ->
   Γ ⊢ B' ∈ ISort s.
 Proof.
-Admitted.
+  move => hB /coherent_sym hT /regularity.
+  case.
+  - move => [s0 hB'].
+    have /coherent_sort_inj ? : Coherent (ISort s) (ISort s0) by hauto lq:on use:coherent_term.
+    by subst.
+  - move => ?. subst.
+    rewrite /Coherent in hT.
+    move : hT => [c]?.
+    have ? : c = ISort Kind by qauto use:pars_sort_inv. subst.
+    qauto use:subject_reduction_star.
+Qed.
 
 Lemma infer_sig_sound Γ a A (h : Γ ⊢ a ∈ A) :
   Γ ⊢ A ∈ ISort Kind ->
@@ -268,41 +279,83 @@ Proof.
     move /coherent_sort_inj => ?. subst.
     hauto q:on use: kind_int_coherent, coherent'_forget.
   (* impossible: type constructor can't have this form *)
-  - move => s Γ A hs.
+  - move => s Γ A /wt_inv //=.
+    case : s => //=.
+    move /coherent'_forget => [c] ?.
+    have ? : c = ISort Kind  by qauto use:pars_sort_inv. subst.
+    hauto lq:on use:subject_reduction_star, kind_imp.
   - move => a iha b ihb Γ A ha hA.
-    move /kind_caseP : hA => //=.
-    move /wt_inv : ha => //=.
-    move => [B][s1][s2][ha][hb][hB]hE.
-    inversion 1; subst.
+    rewrite [kind_int]lock.
+    move /wt_inv : ha => //.
+    move => [B][s1][s2][ha0][hb0][hB]hE.
+    move /kind_caseP : hA => //.
+    elim /kcase_inv => //_.
     (* consistency *)
-    + admit.
-    + erewrite kind_pi_tm; eauto.
+    + hauto lq:on use:coherent'_forget, pars_pi_inv, pars_sort_inv.
+    + move => A0 B0 ?. subst.
+      move => hA0 hB0.
+      rewrite -lock.
+      erewrite kind_pi_tm; eauto.
+      move /coherent'_forget in hE.
+      have [? ?] : Coherent  a A0 /\ Coherent B B0 by hauto l:on use:coherent_pi_inj.
       f_equal.
-      * admit.
+      * have ? : s1 = Star by hauto lq:on rew:off use:coherent_term, coherent_sort_inj. subst.
+        eauto using kind_int_typ.
       * move /(_ (a :: Γ) B0) in ihb.
         rewrite ihb=>//.
-        (* T_Conv' *)
-        admit.
-        (* T_Conv'? *)
-        admit.
-    + erewrite kind_pi_kind; eauto.
+        ** apply : context_equiv; eauto.
+           apply : T_Conv; eauto.
+           apply : context_equiv; eauto using coherent_sym.
+        ** apply : coherent_sort; eauto.
+           have ? : a :: Γ ⊢ B0 ∈ ISort Kind by hauto l:on use:context_equiv.
+           have ? : s2 = Kind by hauto lq:on rew:off use:coherent_term, coherent_sort_inj. subst.
+           exact.
+           apply : T_Conv. apply hb0.
+           apply : context_equiv; eauto.
+           exact.
+    + move => A0 B0 ?. subst.
+      rewrite -lock.
+      have [? ?] : Coherent  a A0 /\ Coherent B B0 by hauto l:on use:coherent_pi_inj, coherent'_forget.
+      move => hA0 hB0.
+      have ? : s1 =  Kind by hauto lq:on rew:off use:coherent_term, coherent_sort_inj. subst.
+      have ? : a :: Γ ⊢ B0 ∈ ISort Kind by hauto l:on use:context_equiv.
+      have ? : s2 =  Kind by hauto lq:on rew:off use:coherent_term, coherent_sort_inj. subst.
+      erewrite kind_pi_kind; eauto.
+      move => [:ha].
       f_equal.
-      (* V stable under evaluation *)
-      * admit.
-      * move /(_ (a :: Γ) B0) in ihb.
-        rewrite ihb=>//; eauto.
-        admit.
-        admit.
+      abstract : ha.
+      hauto l:on use:kind_int_coherent.
+      hauto q:on use:kind_int_coherent.
   - move => b ihb a iha Γ A hba hA.
     move /wt_inv : hba => //=.
     move => [A0][B][hb][ha]hE.
-    have h : Γ ⊢ Pi A0 B ∈ ISort Kind by admit.
+    have h : Γ ⊢ Pi A0 B ∈ ISort Kind.
+
+    move /regularity : hb.
+    case => //=.
+    move => [s hP].
+    move /wt_inv : (hP) => //=.
+    move => [s1][s2][?][hB0]?.
+    have ? : s2 = s by qauto use:coherent_sort_inj, coherent'_forget. subst.
+    have : Γ ⊢ B[a…] ∈ ISort s by eauto using wt_subst_sort.
+    move => h.
+    have ? : s = Kind by
+      hauto lq:on rew:off use:coherent_term, coherent'_forget, coherent_sym, coherent_sort_inj. subst.
+    done.
+
     move : ihb (h)(hb); repeat move /[apply].
     move => ->/=.
     suff : kind_int B = kind_int A by qauto l:on use:kind_has_interp.
+    (* Need a coherent subst term lemma *)
     admit.
-  - move => A ihA B ihB Γ U.
-    admit.
+  - move => A ihA B ihB Γ U hA hU.
+    move /wt_inv : hA => //=.
+    move => [s1][s2][hA][hB]/coherent'_forget hE.
+    move /kind_caseP : hU.
+    elim /kcase_inv=> _ *; subst.
+    + done.
+    + hauto l:on use:pars_pi_inv, pars_sort_inv unfold:Coherent.
+    + hauto l:on use:pars_pi_inv, pars_sort_inv unfold:Coherent.
 Admitted.
 
 Lemma kind_int_preservation A B  (h : A ⇒ B) :
