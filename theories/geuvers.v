@@ -74,20 +74,42 @@ Inductive I_D : D -> (Term -> Prop) -> Prop :=
   (* -------------------------------------------- *)
   I_D (D_Prod D0 D1) (ProdSpace S0 (InterSpace P0 I_D1)).
 
+Definition V_Term A ρ P :=
+  exists D, Eval_D ρ A D /\ V_D D P.
 
+Definition I_Term A ρ S :=
+  exists D, Eval_D ρ A D /\ I_D D S.
 
+Definition ρξ_ok ρ ξ Γ :=
+  forall i A S,
+    Lookup i Γ A ->
+    I_Term A[ξ] ρ S ->
+    S (ξ i).
 
-Fixpoint V_D d d0 : Prop :=
-  match d with
-  | D_Sort s => exists S, d0 = D_Set S
-  | D_Ne => d0 = D_Set SN
-  | D_Prod D0 D1 =>
-      forall di, V_D D0 di -> exists ds,
-          Ap_D D1 di ds /\
+Definition SemWt Γ a A :=
+  forall ρ ξ, ρξ_ok ρ ξ Γ ->
+           exists S, I_Term A[ξ] ρ S /\ S a[ξ].
 
+Lemma soundness Γ a A : Wt Γ a A -> SemWt Γ a A.
+Proof.
+  move => h.
+  elim : Γ a A /h.
+  - admit.
+  - move => Γ hΓ.
+    rewrite /SemWt.
+    move => ρ ξ hρξ.
+    simpl.
+    sauto lq:on.
+  - move => Γ A s1 a B s2 hA ihA ha iha hB ihB.
+    rewrite /SemWt /I_Term in ihB.
+    simpl in ihB.
+    rewrite /SemWt.
+    rewrite /SemWt in ihA.
+    simpl.
+    move => ρ ξ /[dup] hρ.
+    move /ihA.
 
-
-
+Admitted.
 
 
 Inductive Skel : Set :=
