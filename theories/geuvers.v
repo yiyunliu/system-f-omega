@@ -1,5 +1,95 @@
 Require Export typing par syntactic.
 
+Inductive D :=
+| D_Sort : Sort -> D
+| D_Prod : D -> D -> D
+| D_Ne : DNe -> D
+| D_Set : (Term -> Prop) -> D
+| D_Clos : (nat -> D) -> Term -> D
+with DNe :=
+| DN_Var : nat -> DNe
+| DN_App : DNe -> D -> DNe.
+
+Inductive Eval_D : (nat -> D) -> Term -> D -> Prop :=
+| E_Var ρ i :
+  Eval_D ρ (VarTm i) (ρ i)
+
+| E_Sort ρ s :
+  Eval_D ρ (ISort s) (D_Sort s)
+
+| E_App ρ a b d0 d1 d :
+  Eval_D ρ a d0 ->
+  Eval_D ρ b d1 ->
+  Ap_D d0 d1 d ->
+  Eval_D ρ (App a b) d
+
+| E_Pi ρ A B d0  :
+  Eval_D ρ A d0 ->
+  Eval_D ρ (Pi A B) (D_Prod d0 (D_Clos ρ B))
+
+with Ap_D : D -> D -> D -> Prop :=
+| Ap_Clos ρ a d d0 :
+  Eval_D (d .: ρ) a d0 ->
+  Ap_D (D_Clos ρ a) d d0
+
+| Ap_Ne d0 d1 :
+  Ap_D (D_Ne d0) d1 (D_Ne (DN_App d0 d1)).
+
+Definition is_dset d :=
+  match d with
+  | D_Set _ => true
+  | _ => false
+  end.
+
+Inductive V_D : D -> (D -> Prop) -> Prop :=
+| V_Sort s :
+  V_D (D_Sort s) is_dset
+
+| V_Ne e :
+  V_D (D_Ne e) (fun d => d = D_Set SN)
+
+| V_Prod D0 D1 D1' (P0 P1 : D -> Prop) :
+  V_D D0 P0 ->
+  (forall d, Ap_D D1 d D1') ->
+  V_D D1' P1 ->
+  V_D (D_Prod D0 D1) (fun d1 => forall d0, P0 d0 -> exists d, Ap_D d1 d0 d /\ P1 d).
+
+Definition InterSpace (P0 : D -> Prop) (ID : D -> (Term -> Prop) -> Prop) a: Prop :=
+  forall d S, P0 d -> ID d S -> S a.
+
+Definition ProdSpace (S0 S1 : Term -> Prop) b := forall a, S0 a -> S1 (App b a).
+
+Inductive I_D : D -> (Term -> Prop) -> Prop :=
+| I_Sort s :
+  I_D (D_Sort s) SN
+
+| I_Ne e :
+  I_D (D_Ne e) SN
+
+| I_Prod D0 D1 S0 P0 I_D1 :
+  I_D D0 S0 ->
+  V_D D0 P0 ->
+  (forall d0, P0 d0 -> exists S, I_D d0 S) ->
+  (forall d0 d1 S, Ap_D D1 d0 d1 -> I_D1 d0 S -> I_D d1 S) ->
+  (* -------------------------------------------- *)
+  I_D (D_Prod D0 D1) (ProdSpace S0 (InterSpace P0 I_D1)).
+
+
+
+
+Fixpoint V_D d d0 : Prop :=
+  match d with
+  | D_Sort s => exists S, d0 = D_Set S
+  | D_Ne => d0 = D_Set SN
+  | D_Prod D0 D1 =>
+      forall di, V_D D0 di -> exists ds,
+          Ap_D D1 di ds /\
+
+
+
+
+
+
 Inductive Skel : Set :=
 | SK_Unit : Skel
 | SK_Star : Skel
