@@ -1,117 +1,5 @@
 Require Export typing par syntactic.
 
-Inductive D :=
-| D_Sort : Sort -> D
-| D_Prod : D -> D -> D
-| D_Ne : DNe -> D
-| D_Set : (Term -> Prop) -> D
-| D_Clos : (nat -> D) -> Term -> D
-with DNe :=
-| DN_Var : nat -> DNe
-| DN_App : DNe -> D -> DNe.
-
-Inductive Eval_D : (nat -> D) -> Term -> D -> Prop :=
-| E_Var ρ i :
-  Eval_D ρ (VarTm i) (ρ i)
-
-| E_Sort ρ s :
-  Eval_D ρ (ISort s) (D_Sort s)
-
-| E_App ρ a b d0 d1 d :
-  Eval_D ρ a d0 ->
-  Eval_D ρ b d1 ->
-  Ap_D d0 d1 d ->
-  Eval_D ρ (App a b) d
-
-| E_Pi ρ A B d0  :
-  Eval_D ρ A d0 ->
-  Eval_D ρ (Pi A B) (D_Prod d0 (D_Clos ρ B))
-
-with Ap_D : D -> D -> D -> Prop :=
-| Ap_Clos ρ a d d0 :
-  Eval_D (d .: ρ) a d0 ->
-  Ap_D (D_Clos ρ a) d d0
-
-| Ap_Ne d0 d1 :
-  Ap_D (D_Ne d0) d1 (D_Ne (DN_App d0 d1)).
-
-Definition is_dset d :=
-  match d with
-  | D_Set _ => true
-  | _ => false
-  end.
-
-Inductive V_D : D -> (D -> Prop) -> Prop :=
-| V_Sort s :
-  V_D (D_Sort s) is_dset
-
-| V_Ne e :
-  V_D (D_Ne e) (fun d => d = D_Set SN)
-
-| V_Prod D0 D1 D1' (P0 P1 : D -> Prop) :
-  V_D D0 P0 ->
-  (forall d, Ap_D D1 d D1') ->
-  V_D D1' P1 ->
-  V_D (D_Prod D0 D1) (fun d1 => forall d0, P0 d0 -> exists d, Ap_D d1 d0 d /\ P1 d).
-
-Definition InterSpace (P0 : D -> Prop) (ID : D -> (Term -> Prop) -> Prop) a: Prop :=
-  forall d S, P0 d -> ID d S -> S a.
-
-Definition ProdSpace (S0 S1 : Term -> Prop) b := forall a, S0 a -> S1 (App b a).
-
-Inductive I_D : D -> (Term -> Prop) -> Prop :=
-| I_Sort s :
-  I_D (D_Sort s) SN
-
-| I_Ne e :
-  I_D (D_Ne e) SN
-
-| I_Prod D0 D1 S0 P0 I_D1 :
-  I_D D0 S0 ->
-  V_D D0 P0 ->
-  (forall d0, P0 d0 -> exists S, I_D d0 S) ->
-  (forall d0 d1 S, Ap_D D1 d0 d1 -> I_D1 d0 S -> I_D d1 S) ->
-  (* -------------------------------------------- *)
-  I_D (D_Prod D0 D1) (ProdSpace S0 (InterSpace P0 I_D1)).
-
-Definition V_Term A ρ P :=
-  exists D, Eval_D ρ A D /\ V_D D P.
-
-Definition I_Term A ρ S :=
-  exists D, Eval_D ρ A D /\ I_D D S.
-
-Definition ρξ_ok ρ ξ Γ :=
-  forall i A S,
-    Lookup i Γ A ->
-    I_Term A[ξ] ρ S ->
-    S (ξ i).
-
-Definition SemWt Γ a A :=
-  forall ρ ξ, ρξ_ok ρ ξ Γ ->
-           exists S, I_Term A[ξ] ρ S /\ S a[ξ].
-
-Lemma soundness Γ a A : Wt Γ a A -> SemWt Γ a A.
-Proof.
-  move => h.
-  elim : Γ a A /h.
-  - admit.
-  - move => Γ hΓ.
-    rewrite /SemWt.
-    move => ρ ξ hρξ.
-    simpl.
-    sauto lq:on.
-  - move => Γ A s1 a B s2 hA ihA ha iha hB ihB.
-    rewrite /SemWt /I_Term in ihB.
-    simpl in ihB.
-    rewrite /SemWt.
-    rewrite /SemWt in ihA.
-    simpl.
-    move => ρ ξ /[dup] hρ.
-    move /ihA.
-
-Admitted.
-
-
 Inductive Skel : Set :=
 | SK_Unit : Skel
 | SK_Star : Skel
@@ -513,151 +401,36 @@ Proof.
     + hauto l:on use:pars_pi_inv, pars_sort_inv unfold:Coherent.
 Qed.
 
-(* Definition ρ_ok_kind (ρ : nat ->  {A : Skel & skel_int A}) Γ := *)
-(*   forall i (A : Term), Lookup i Γ A -> exists Sk S, kind_int A = Sk /\ ρ i = (existT Sk S). *)
+Definition int_type ρ ξ A := int_type_with_sig ρ ξ (infer_sig ρ A) A.
 
-(* Fixpoint type_int (Γ : Basis) *)
-(*   (ρ : nat -> option {A : Skel & skel_int A}) (a : Term): *)
-(*   option {A : Skel & skel_int A}. *)
-(*   refine ( *)
-(*       match a with *)
-(*       | ISort s => Some (existT SK_Star SN) *)
-(*       | VarTm i => ρ i *)
-(*       | App a b => *)
-(*           match type_int Γ ρ a, type_int Γ ρ b with *)
-(*           | Some (existT sk1 S1), Some (existT sk2 S2) => _ *)
-(*           | r, _ => r *)
-(*           end *)
-(*       | Abs A a => *)
-(*           match kind_int A with *)
-(*           | Some sk => *)
-
-(*           | None => _ *)
-(*           end *)
-(*       | _ => _ *)
-(*       end *)
-(*     ). *)
-
-Inductive type_interp (Γ : Basis) (ρ : nat -> option {A : Skel & skel_int A}) : Term -> forall (A : Skel), skel_int A -> Prop :=
-| TI_Star s :
-  type_interp Γ ρ (ISort s) SK_Star SN
-
-| TI_Var i Sk1 S :
-  Some (existT Sk1 S) = ρ i ->
-  type_interp Γ ρ (VarTm i) Sk1 S
-
-| TI_App P Q Sk1 Sk2 S1 S2 F :
-  type_interp Γ ρ P (SK_Arr Sk1 Sk2) F ->
-  type_interp Γ ρ Q Sk1 S1 ->
-  F S1 S2 ->
-  (* -------------------- *)
-  type_interp Γ ρ (App P Q) Sk2 S2
-
-| TI_AppTm Sk P t A S  :
-  type_interp Γ ρ P Sk S ->
-  Γ ⊢ t ∈ A ->
-  Γ ⊢ A ∈ ISort Star ->
-  (* ------------------------------- *)
-  type_interp Γ ρ (App P t) Sk S
-
-| TI_Abs A B Sk1 Sk2 PF :
-  kind_int A = Some Sk1 ->
-  (forall a, exists S, PF a S) ->
-  (forall a S, PF a S -> type_interp (A::Γ) (Some (existT Sk1 a) .: ρ) B  Sk2 S) ->
-  (* ------------------------------ *)
-  type_interp Γ ρ (Abs A B) (SK_Arr Sk1 Sk2) PF
-
-| TI_AbsTm A B Sk S :
-  kind_int A = None ->
-  type_interp (A::Γ) (None .: ρ) B Sk S ->
-  (* ------------------------------------ *)
-  type_interp Γ ρ (Abs A B) Sk S
-
-| TI_Pi A B S1 S2:
-  kind_int A = None ->
-  type_interp Γ ρ A SK_Star S1 ->
-  type_interp (A::Γ) (None .: ρ) B SK_Star S2 ->
-  (* ------------------------------------------------------------- *)
-  type_interp Γ ρ (Pi A B) SK_Star (ProdSpace S1 S2)
-
-| TI_PiKind A Sk B S PF :
-  kind_int A = Some Sk ->
-  type_interp Γ ρ A SK_Star S  ->
-  (forall a, exists S, PF a S) ->
-  (forall a S, PF a S -> type_interp (A::Γ) (Some (existT Sk a) .: ρ) B SK_Star S) ->
-  type_interp Γ ρ (Pi A B) SK_Star (ProdSpace S (InterSpace PF)).
-
-
-Lemma kind_has_interp Γ A :
-  Γ ⊢ A ∈ ISort Kind -> exists V, kind_interp Γ A V.
-Proof.
-  move E : (ISort Kind) => U h.
-  move : E.
-  elim : Γ A U /h=>//=.
-  - hauto lq:on use: wf_lookup, kind_imp.
-  - eauto using KI_Star.
-  - move => Γ a b A B ha _ hb _ E.
-    have : Γ ⊢ App b a ∈ B[a…] by  eauto using T_App.
-    case /regularity : hb=>//.
-    move => [s]/wt_inv /=.
-    move => [s1][s2]hA.
-    have ? : s2 = s by hauto l:on use:coherent_sort_inj. subst.
-    have : Γ ⊢ B[a…] ∈ ISort s by firstorder using wt_subst_sort.
-    rewrite -E.
-    firstorder using kind_imp.
-  - move => Γ A s1 B s2 hA ihA hB ihB [?]. subst.
-    specialize ihB with (1 := eq_refl).
-    case : s1 hA ihA; hauto lq:on ctrs:kind_interp.
-  - (* Impossible *)
-    move => Γ a A B s ha iha hB ihB heq ?. subst.
-    firstorder using kind_imp.
+Lemma int_type_sort ρ ξ s : int_type ρ ξ (ISort s) = SN.
+  by rewrite /int_type.
 Qed.
 
-Lemma kind_interp_not_star Γ A S :
-  kind_interp Γ A S ->
-  ~ Γ ⊢ A ∈ ISort Star.
+Lemma int_type_var ρ ξ i : int_type ρ ξ (VarTm i) = ξ i.
 Proof.
-  move => h. elim : Γ A S /h.
-  - hauto l:on use:wt_inv, coherent_sort_inj.
-  - hauto lq:on rew:off use:wt_inv, coherent_sort_inj.
-  - hauto lq:on rew:off use:wt_inv, coherent_sort_inj.
+  rewrite /int_type /=.
+  rewrite /ρξ_lookup.
+  case : Skel_eq_dec.
+  - move => a.
+    by rewrite -Eqdep.Eq_rect_eq.eq_rect_eq.
+  - done.
 Qed.
 
-Lemma kind_interp_functionality Γ A S0 S1 :
-  kind_interp Γ A S0 -> kind_interp Γ A S1 -> S0 = S1.
+Lemma int_app b a Γ ξ y A B :
+  Γ ⊢ b ∈ Pi A B ->
+  Γ ⊢ a ∈ A ->
+  Γ ⊢ A ∈ ISort Kind ->
+  A :: Γ ⊢  B ∈ ISort Kind ->
+  int_type (b2s Γ) ξ (App b a) = y.
 Proof.
-  move => h. move : S1. elim : Γ A S0 / h.
-  - hauto lq:on inv:kind_interp.
-  - move => Γ A B SA0 SB0 hA ihA hB ihB S.
-    inversion 1; subst.
-    sfirstorder.
-    firstorder using kind_interp_not_star.
-  - move => Γ A B S hA ihA hB S0.
-    inversion 1.
-    by firstorder using kind_interp_not_star.
-    sfirstorder.
-Qed.
-
-Lemma type_has_interp Γ A T Sk:
-  Γ ⊢ A ∈ T -> kind_interp Γ T Sk ->
-  forall ρ, ρ_ok_kind ρ Γ -> forall Sk0 S, type_interp Γ ρ A Sk0 S -> Sk = Sk0.
-Proof.
-  move => + + ρ + Sk0 S h.
-  move : Sk T.
-  elim : Γ ρ A Sk0 S /h.
-  - move => Γ ρ s Sk T /wt_inv_sort.
-    move => [? ?]. subst.
-    inversion 1.
-  - move => Γ ρ i sk S hi sk0 T hA hT hρ.
-    rewrite /ρ_ok_kind in hρ.
-    move /wt_inv : hA => /=.
-    move => [A0][hA0 ?].
-    move : hρ hA0 => /[apply].
-    move => [sk1]/=[S0][h0 h1].
-    rewrite h1 in hi.
-    case : hi => ?.
-    move => h. subst.
-    admit.
-  - move => Γ ρ P Q Sk1 Sk2 S1 S2.
-    rewrite -/interp_skel in S2 *.
-    best.
+  rewrite /int_type.
+  move => hb hB ha hA.
+  have hPi : Γ ⊢ Pi A B ∈ ISort Kind by eauto using T_Pi.
+  have hba : Γ ⊢ App b a ∈ B[a…] by eauto using T_App.
+  simpl.
+  have ? : infer_sig (b2s Γ) a = kind_int A by eauto using infer_sig_sound.
+  have : infer_sig (b2s Γ) b = kind_int (Pi A B) by eauto using infer_sig_sound.
+  erewrite kind_pi_kind; eauto.
+  move => h.
+  rewrite h.
