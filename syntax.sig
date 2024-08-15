@@ -1,10 +1,12 @@
-Sort : Type
-Term(VarTm) : Type
+Tm(VarTm) : Type
+Ty(VarTy) : Type
+Ki : Type
 
-Kind : Sort
-Star : Sort
+TmAbs : (bind Tm in Tm) -> Tm
+TmApp : Tm -> Tm -> Tm
 
-ISort : Sort -> Term
-Abs : Term -> (bind Term in Term) -> Term
-App : Term -> Term -> Term
-Pi : Term -> (bind Term in Term) -> Term
+TyAbs : (bind Ty in Ty) -> Ty
+TyApp : Ty -> Ty -> Ty
+
+Star : Ki
+Arr : Ki -> Ki -> Ki

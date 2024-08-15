@@ -10,11 +10,9 @@ Global Set Warnings "-notation-overridden".
 Require Export Autosubst2.syntax Autosubst2.core Autosubst2.unscoped.
 Export CombineNotations.
 
-Notation "s [ sigmatm ]" := (subst_Term sigmatm s) (at level 7, left associativity) : subst_scope.
-Notation "s ⟨ xitm ⟩" := (ren_Term xitm s) (at level 7, left associativity) : subst_scope.
-Global Disable Notation "s '..'" : subst_scope.
-Global Disable Notation "'var'" : subst_scope.
-Global Disable Notation "↑".
+(* Notation "s [ sigmatm ]" := (subst_Term sigmatm s) (at level 7, left associativity) : subst_scope. *)
+(* Notation "s ⟨ xitm ⟩" := (ren_Term xitm s) (at level 7, left associativity) : subst_scope. *)
+Global Disable Notation "'var'" (all) : subst_scope.
 Notation "s '…'" := (scons s ids) (at level 70) : subst_scope.
 Global Open Scope subst_scope.
 Global Open Scope list_scope.

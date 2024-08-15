@@ -1,7 +1,37 @@
 Require Export par.
 
-Reserved Notation "Γ ⊢ a ∈ A" (at level 70, no associativity).
-Reserved Notation "⊢ Γ" (at level 70, no associativity).
+Definition TyBasis := list Ki.
+
+Definition lookup {T} n (Δ : list T) :=
+  nth_error Δ n.
+
+Inductive Lookup {T} : nat -> list T -> T -> Prop :=
+| Here A Γ : Lookup 0 (A :: Γ) A
+| There n Γ A B : Lookup n Γ A ->
+                     Lookup (S n) (cons B Γ) A.
+
+Lemma LookupIff {T} n (Γ : list T) A : Lookup n Γ A <-> lookup n Γ = Some A.
+Proof.
+  split.
+  - elim; hauto lq:on.
+  - elim : n Γ A; hauto q:on inv:list ctrs:Lookup.
+Qed.
+
+Inductive TyWt Δ : Ty -> Ki -> Prop :=
+| TyT_Var i k :
+  Lookup i Δ k ->
+  TyWt Δ (VarTy i) k
+
+| TyT_Abs A k0 k1 :
+  TyWt (k0 :: Δ) A k1 ->
+  TyWt Δ A (Arr k0 k1)
+
+| TyT_App b a k0 k1 :
+  TyWt Δ b (Arr k0 k1) ->
+  TyWt Δ a k0 ->
+  TyWt Δ (TyApp b a) k1.
+
+Definition TmBasis := list Ty.
 
 Definition Basis := list Term.
 
