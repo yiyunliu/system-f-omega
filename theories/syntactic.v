@@ -74,6 +74,12 @@ Equations V_Cons {Δ k} (h : int_kind k) (ξ : ty_val Δ) : ty_val (k :: Δ) :=
   V_Cons h ξ ?(0) ?(k) (Here k Δ) := h ;
   V_Cons h ξ ?(S n) ?(k0) (There n Δ0 k0 k1 l) := ξ n k0 l.
 
+(* Definition ty_val_ren {Δ Δ'} *)
+(*   (ξ : ty_val Δ') (ξ' : ty_val Δ) f *)
+(*   (hf : forall i k, Lookup i Δ k -> Lookup (f i) Δ' k) *)
+(*   (hξ : forall i k (l : Lookup i Δ k) (l' : Lookup (f i) Δ' k), *)
+(*       ξ (f i) k l' = ξ' i k l) :  *)
+
 Definition ty_val_ren {Δ Δ'}
   (ξ : ty_val Δ') f
   (hf : forall i k, Lookup i Δ k -> Lookup (f i) Δ' k) : ty_val Δ :=
@@ -132,14 +138,14 @@ Proof.
 Qed.
 
 
-Lemma int_type_ren {Δ Δ' A k} (h : TyWt Δ A k)
-  (ξ : ty_val Δ') f
-  (hf : forall i k, Lookup i Δ k -> Lookup (f i) Δ' k) :
-  int_type (ty_renaming h hf) ξ = int_type h (ty_val_ren ξ f hf).
-  move : Δ' ξ f hf.
-  elim : Δ A k /h.
-  - reflexivity.
-Admitted.
+(* Lemma int_type_ren {Δ Δ' A k} (h : TyWt Δ A k) *)
+(*   (ξ : ty_val Δ') f *)
+(*   (hf : forall i k, Lookup i Δ k -> Lookup (f i) Δ' k) : *)
+(*   int_type (ty_renaming h hf) ξ = int_type h (ty_val_ren ξ f hf). *)
+(*   move : Δ' ξ f hf. *)
+(*   elim : Δ A k /h. *)
+(*   - reflexivity. *)
+(* Admitted. *)
 
 Definition tm_val Δ ξ Γ :=
   forall i A (l : Lookup i Γ A) (h : TyWt Δ A Star), int_type h ξ.
@@ -206,6 +212,7 @@ Proof.
   - move => ξ ρ.
     simp regularity => /=.
     move => a0. apply IHh.
+    Check tm_val_ren_ty.
     rewrite /tm_val.
     rewrite /up_Basis.
     move => i A0 hA0.
@@ -217,9 +224,11 @@ Proof.
     intros h0.
     have h1 : TyWt Δ A1 Star by admit.
     specialize (hl h1).
-t    rewrite /up_Basis.
-    apply tm_val_ren_ty.
+    rewrite /up_Basis.
+    (* apply tm_val_ren_ty. *)
     (* tm_val weakening *)
+    (* requires int_type weakening *)
+    (* use the system f version as a reference *)
     admit.
   - move => ξ ρ.
     move E :  (regularity h) => S.
