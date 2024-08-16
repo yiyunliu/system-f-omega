@@ -65,23 +65,33 @@ Fixpoint int_kind k :=
   | Arr k0 k1 => int_kind k0 -> int_kind k1
   end.
 
-Inductive ty_val : TyBasis -> Type :=
-| V_Nil :
-  ty_val nil
-| V_Cons {Δ k} :
-  int_kind k ->
-  ty_val Δ ->
-  ty_val (k :: Δ).
+Definition ty_val Δ :=
+  forall i k (l : Lookup i Δ k), int_kind k.
 
-Equations ty_val_lookup {i Δ k}
-  (l : Lookup i Δ k) (ξ : ty_val Δ) : int_kind k :=
-  ty_val_lookup (Here A Γ) (V_Cons h0 h1) := h0 ;
-  ty_val_lookup (There n Γ A B h) (V_Cons h0 h1) := ty_val_lookup h h1.
+Equations V_Nil : ty_val nil := V_Nil i k !.
+
+Equations V_Cons {Δ k} (h : int_kind k) (ξ : ty_val Δ) : ty_val (k :: Δ) :=
+  V_Cons h ξ ?(0) ?(k) (Here k Δ) := h ;
+  V_Cons h ξ ?(S n) ?(k0) (There n Δ0 k0 k1 l) := ξ n k0 l.
+
+Definition ty_val_ren {Δ Δ'}
+  (ξ : ty_val Δ') f
+  (hf : forall i k, Lookup i Δ k -> Lookup (f i) Δ' k) : ty_val Δ :=
+  fun i k l => ξ (f i) k (hf _ _ l).
+
+
+(* Inductive *)
+
+(* Lemma tm_val_renaming Δ (ξ : ty_val Δ) : *)
+(*   forall (ρ : tm_val Δ ξ), *)
+(*   forall Δ' f, *)
+(*     (forall i A (h : TyWt Δ A Star) (l : Lookup i Δ A), tm_val_lookup ρ h l = ) *)
+
 
 Lemma int_type {Δ A k} (h : TyWt Δ A k) (ξ : ty_val Δ) : int_kind k.
 Proof.
   induction h.
-  - apply : ty_val_lookup l ξ.
+  - apply : ξ l.
   - intros s0; apply : IHh (V_Cons s0 ξ).
   - apply : IHh1 ξ (IHh2 ξ).
   - apply : (IHh1 ξ -> IHh2 ξ).
@@ -155,6 +165,31 @@ Equations tm_val_lookup {i Δ Γ A ξ}
     with int_type_irrel h' h ξ,  int_type h' ξ  :=
     { | eq_refl, _ := r} ;
   tm_val_lookup (T_Cons A Γ h' r t) (There n Γ A B l) h := tm_val_lookup t l h.
+
+Equations ty_val_ren {Δ Δ'} (ξ : ty_val Δ') f
+  (hf : forall i k, Lookup i Δ k -> Lookup (f i) Δ' k) : ty_val Δ :=
+  ty_val_ren (@V_Cons Δ' k h ξ) f hf :=
+    ty_val_ren ξ _ ;
+  ty_val_ren (Δ := nil) V_Nil f hf := V_Nil ;
+  ty_val_ren (Δ := k :: Δ0) V_Nil f hf
+    with hf 0 k (Here k Δ0) := { | p := _ }.
+Next Obligation.
+  inversion p.
+Defined.
+
+Next Obligation.
+
+
+
+(* Definition ty_val_ren Δ ξ (f : nat -> nat) Δ' : *)
+(*   (forall i k, Lookup i Δ k -> Lookup (ξ i) Δ' k) -> *)
+(*   ty_val Δ'. *)
+
+
+(* Inductive ty_val_ren Δ (ξ : ty_val Δ) : TyBasis -> Type := *)
+(* | TR_Nil : *)
+(*   ty_val_lookup *)
+(*   ty_val_ren Δ ξ *)
 
 Lemma int_term {Δ Γ a A} (h : Wt Δ Γ a A) :
   forall ξ (ρ : tm_val Δ ξ Γ),
