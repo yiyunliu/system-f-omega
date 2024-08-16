@@ -8,21 +8,21 @@ Set Default Proof Mode "Classic".
 Inductive TyPar : Ty -> Ty -> Prop :=
 | TP_Var i :
   TyPar (VarTy i) (VarTy i)
-| TP_Abs A0 A1 a0 a1 :
+| TP_Abs k A0 A1 a0 a1 :
   TyPar A0 A1 ->
   TyPar a0 a1 ->
   (* ------------------- *)
-  TyPar (TyAbs a0) (TyAbs a1)
+  TyPar (TyAbs k a0) (TyAbs k a1)
 | TP_App b0 b1 a0 a1 :
   TyPar b0 b1 ->
   TyPar a0 a1 ->
   (* ---------------------------- *)
   TyPar (TyApp b0 a0) (TyApp b1 a1)
-| TP_AppAbs b0 b1 a0 a1 :
+| TP_AppAbs k b0 b1 a0 a1 :
   TyPar b0 b1 ->
   TyPar a0 a1 ->
   (* ---------------------------- *)
-  TyPar (TyApp (TyAbs b0) a0) (subst_Ty (a1…) b1).
+  TyPar (TyApp (TyAbs k b0) a0) (subst_Ty (a1…) b1).
 
 
 Reserved Infix "⇒" (at level 70, no associativity).

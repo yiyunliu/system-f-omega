@@ -23,13 +23,27 @@ Proof.
   induction h; sauto l:on use:ty_weakening.
 Qed.
 
+Lemma ty_subst {Δ A B k0 k} (h : TyWt (k :: Δ) A k0) (h0 : TyWt Δ B k) :
+  TyWt Δ (subst_Ty (B…) A) k0.
+Proof.
+  sauto lq:on use:ty_morphing.
+Qed.
+
+Equations length {A} (a : list A) : nat :=
+  length nil := O ;
+  length (x :: a) := S (length a).
 
 Equations regularity {Δ Γ a A} (h : Wt Δ Γ a A) : TyWt Δ A Star :=
 regularity (a := ?(VarTm i)) (A := ?(A)) (T_Var i A hwf hl) := hwf _ _ hl ;
 regularity (a := ?(TmAbs a)) (A := ?(TyFun A B)) (T_Abs A a B hA ha) :=
   TyT_Fun Δ A B hA (regularity ha) ;
-regularity (a := ?(TmApp b a)) (A := ?(B)) (T_App a b A B ha hb) with
-  regularity hb  := { | TyT_Fun A B h0 h1 => h1}.
+regularity (a := ?(TmApp b a)) (A := ?(B)) (T_App a b A B ha hb)
+  with regularity hb  := { | TyT_Fun A B h0 h1 => h1} ;
+regularity (T_Forall k a A ha) :=
+  TyT_Forall Δ k A (regularity ha) ;
+regularity (T_Inst k a A B hB ha)
+  with regularity ha := { | TyT_Forall k A hA => ty_subst hA hB } ;
+regularity (A := ?(B)) (T_Conv a A B ha hB hAB) := hB.
 
 (* Lemma regularity_irrel {Δ Γ a A} (h h0 : Wt Δ Γ a A ) : *)
 (*   regularity h = regularity h0. *)
@@ -45,8 +59,6 @@ regularity (a := ?(TmApp b a)) (A := ?(B)) (T_App a b A B ha hb) with
 (*   admit. *)
 (*   ad *)
 
-
-
 Fixpoint int_kind k :=
   match k with
   | Star => Prop
@@ -61,30 +73,10 @@ Inductive ty_val : TyBasis -> Type :=
   ty_val Δ ->
   ty_val (k :: Δ).
 
-Lemma ty_val_lookup {i Δ k} :
-  Lookup i Δ k -> ty_val Δ -> int_kind k.
-Proof.
-  induction 1.
-  - inversion 1; subst.
-    apply X0.
-  - inversion 1; subst.
-    apply (IHX X2).
-Defined.
-
-(* Fixpoint int_type_check Δ A k : option (int_kind k) := *)
-(*   match A with *)
-(*   | VarTm i *)
-(* Equations int_type {Δ A k} (h : TyWt Δ A k) (ξ : ty_val Δ) : int_kind k := *)
-(*   int_type (A := ?(VarTy i)) (k := ?(k)) *)
-(*     (TyT_Var i k l) ξ := ty_val_lookup l ξ ; *)
-(*   int_type (A := ?(TyAbs A)) (k := ?(Arr k0 k1)) *)
-(*     (TyT_Abs A k0 k1 hA) ξ := fun a => int_type hA (V_Cons a ξ) ; *)
-(*   int_type (A := ?(TyApp b a)) (k := ?(k1)) *)
-(*     (TyT_App b a k0 k1 hb ha) ξ := int_type hb ξ (int_type ha ξ)  ; *)
-(*   int_type (A := ?(TyFun A B)) (k := ?(Star)) *)
-(*     (TyT_Fun A B hA hB) ξ := int_type hA ξ -> int_type hB ξ ; *)
-(*   int_type (A := ?(TyForall k A)) (k := ?(Star)) *)
-(*     (TyT_Forall k A hA) ξ := forall a, int_type hA (V_Cons a ξ). *)
+Equations ty_val_lookup {i Δ k}
+  (l : Lookup i Δ k) (ξ : ty_val Δ) : int_kind k :=
+  ty_val_lookup (Here A Γ) (V_Cons h0 h1) := h0 ;
+  ty_val_lookup (There n Γ A B h) (V_Cons h0 h1) := ty_val_lookup h h1.
 
 Lemma int_type {Δ A k} (h : TyWt Δ A k) (ξ : ty_val Δ) : int_kind k.
 Proof.
@@ -96,6 +88,19 @@ Proof.
   - apply : (forall (a : int_kind k), IHh (V_Cons a ξ)).
 Defined.
 
+Lemma kind_unique Δ A k (h0 : TyWt Δ A k ) : forall k0, TyWt Δ A k0 -> k = k0.
+Proof.
+  induction h0; hauto lq:on rew:off inv:TyWt use:@lookup_functional.
+Qed.
+
+Derive EqDec for Ki.
+Set Equations With UIP.
+
+Lemma lookup_unique {U} i (Γ : list U) A (h0 h1 : Lookup i Γ A) : h0 = h1.
+  move : h1.
+  induction h0; hauto lq:on dep:on inv:Lookup.
+Qed.
+
 Lemma int_type_irrel {Δ A k} (h h0 : TyWt Δ A k) (ξ : ty_val Δ) :
   int_type h ξ = int_type h0 ξ.
 Proof.
@@ -103,8 +108,7 @@ Proof.
   elim : Δ A k /h.
   - intros .
     dependent elimination h0.
-    simpl.
-    admit.
+    hauto lq:on use:lookup_unique.
   - intros Δ A k0 k1 t iht ξ h0.
     dependent elimination h0.
     simpl.
@@ -113,7 +117,7 @@ Proof.
   - intros.
     dependent elimination h0.
     simpl.
-    have ? : k4 = k0 by admit. subst.
+    have ? : k4 = k0 by eauto using kind_unique. subst.
     scongruence.
   - intros.
     dependent elimination h0.
@@ -124,7 +128,7 @@ Proof.
     simpl.
     extensionality h.
     apply H.
-Admitted.
+Qed.
 
 Inductive tm_val (Δ : TyBasis) (ξ : ty_val Δ) : TmBasis -> Type :=
 | T_Nil :
@@ -133,42 +137,54 @@ Inductive tm_val (Δ : TyBasis) (ξ : ty_val Δ) : TmBasis -> Type :=
   int_type h ξ ->
   tm_val Δ ξ Γ ->
   tm_val Δ ξ (A :: Γ).
+Check PeanoNat.Nat.add_comm.
 
-(* Equations int_term {Δ Γ a A} (h : Wt Δ Γ a A) ξ (ρ : tm_val Δ ξ Γ) : *)
-(*   int_type (regularity h) ξ := *)
-(*   int_term (VarTm i) ξ ρ := _ ; *)
-(*   int_term (a := ?(TmApp b a)) (A := ?(B)) *)
-(*     (T_App a b A B ha hb) ξ ρ with regularity hb *)
-(*   := { | TyT_Fun A B h0 h1 => *)
-(*          (int_term hb ξ ρ) (int_term ha ξ ρ)} ; *)
-(*   int_term h ξ ρ := _. *)
+Fail Equations apply_eq (a b : nat) (F : nat -> Type) (h : F (a + b)) :
+  F (b + a) :=
+  apply_eq a b F h with (a + b), PeanoNat.Nat.add_comm a b :=
+    { | ?(b + a) , eq_refl := h }.
+
+Equations apply_eq (a b : nat) (F : nat -> Type) (h : F (a + b)) :
+  F (b + a) :=
+  apply_eq a b F h with PeanoNat.Nat.add_comm a b, (a + b) :=
+    { | eq_refl,  ?(plus b a)  := h }.
+
+Equations tm_val_lookup {i Δ Γ A ξ}
+  (ρ : tm_val Δ ξ Γ) (l : Lookup i Γ A) (h : TyWt Δ A Star) : int_type h ξ :=
+  tm_val_lookup (T_Cons A Γ h' r t) (Here A Γ) h
+    with int_type_irrel h' h ξ,  int_type h' ξ  :=
+    { | eq_refl, _ := r} ;
+  tm_val_lookup (T_Cons A Γ h' r t) (There n Γ A B l) h := tm_val_lookup t l h.
 
 Lemma int_term {Δ Γ a A} (h : Wt Δ Γ a A) :
   forall ξ (ρ : tm_val Δ ξ Γ),
-    int_type (regularity  h) ξ.
+    int_type (regularity h) ξ.
 Proof.
   induction h.
-  - move => ξ hξ. simp regularity.
-    admit.
-  - simp regularity in *.
-    intros ξ ρ.
-    specialize (IHh ξ).
-    simpl.
-    intros k.
-    apply IHh.
-    sauto lq:on.
+  - simp regularity => *.
+    qauto use:tm_val_lookup.
+  - hauto lq:on ctrs:tm_val rew:db:regularity.
   - move => ξ ρ.
     move E : (regularity h2) => S.
     dependent elimination S.
+    hauto lq:on use:int_type_irrel rew:db:regularity.
+  - move => ξ ρ.
+    simp regularity => /=.
+    move => a0. apply IHh.
+    (* tm_val weakening *)
+    admit.
+  - move => ξ ρ.
+    move E :  (regularity h) => S.
+    dependent elimination S.
     simp regularity.
-    rewrite E in IHh2 *.
-    simp regularity.
-    specialize IHh1 with (1 := ρ).
-    specialize IHh2 with (1 := ρ).
-    hauto lq:on use:int_type_irrel.
-
-
-
+    specialize IHh with (1 := ρ).
+    move : IHh.
+    rewrite E.
+    simp regularity. simpl.
+    (* int_type substitution *)
+    admit.
+  - move => ξ hξ.
+Admitted.
 
 
 intros ξ ρ.

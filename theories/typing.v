@@ -10,12 +10,10 @@ Inductive Lookup {T} : nat -> list T -> T -> Type :=
 | There n Γ A B : Lookup n Γ A ->
                      Lookup (S n) (cons B Γ) A.
 
-(* Lemma LookupIff {T} n (Γ : list T) A : Lookup n Γ A <-> lookup n Γ = Some A. *)
-(* Proof. *)
-(*   split. *)
-(*   - elim; hauto lq:on. *)
-(*   - elim : n Γ A; hauto q:on inv:list ctrs:Lookup. *)
-(* Qed. *)
+Lemma LookupIff {T} n (Γ : list T) A : Lookup n Γ A -> lookup n Γ = Some A.
+Proof.
+  elim; hauto lq:on.
+Qed.
 
 Inductive TyWt Δ : Ty -> Ki -> Type :=
 | TyT_Var i k :
@@ -24,7 +22,7 @@ Inductive TyWt Δ : Ty -> Ki -> Type :=
 
 | TyT_Abs A k0 k1 :
   TyWt (k0 :: Δ) A k1 ->
-  TyWt Δ (TyAbs A) (Arr k0 k1)
+  TyWt Δ (TyAbs k0 A) (Arr k0 k1)
 
 | TyT_App b a k0 k1 :
   TyWt Δ b (Arr k0 k1) ->
@@ -42,8 +40,8 @@ Inductive TyWt Δ : Ty -> Ki -> Type :=
 
 Definition TmBasis := list Ty.
 
-(* Lemma lookup_functional {U} n (Γ : list U) A B : Lookup n Γ A -> Lookup n Γ B -> A = B. *)
-(* Proof. rewrite !LookupIff. congruence. Qed. *)
+Lemma lookup_functional {U} n (Γ : list U) A B : Lookup n Γ A -> Lookup n Γ B -> A = B.
+Proof. hauto l:on inv:Lookup use:LookupIff. Qed.
 
 Derive Inversion lookup_inv with (forall {U} i (Γ : list U) A, Lookup i Γ A) Sort Prop.
 
@@ -74,20 +72,20 @@ Inductive Wt Δ Γ : Tm -> Ty -> Type :=
   (* --------------- *)
   Wt Δ Γ (TmApp b a) B
 
-(* | T_Forall k a A : *)
-(*   Wt (k :: Δ) (up_Basis Γ) a A -> *)
-(*   (* --------------------------- *) *)
-(*   Wt Δ Γ a (TyForall k A) *)
+| T_Forall k a A :
+  Wt (k :: Δ) (up_Basis Γ) a A ->
+  (* --------------------------- *)
+  Wt Δ Γ a (TyForall k A)
 
-(* | T_Inst k a A B : *)
-(*   TyWt Δ B k -> *)
-(*   Wt Δ Γ a (TyForall k A) -> *)
-(*   (* ------------------------ *) *)
-(*   Wt Δ Γ a (subst_Ty (B…) A) *)
+| T_Inst k a A B :
+  TyWt Δ B k ->
+  Wt Δ Γ a (TyForall k A) ->
+  (* ------------------------ *)
+  Wt Δ Γ a (subst_Ty (B…) A)
 
-(* | T_Conv a A B : *)
-(*   Wt Δ Γ a A -> *)
-(*   TyWt Δ B Star -> *)
-(*   ICoherent A B -> *)
-(*   (* ------------ *) *)
-(*   Wt Δ Γ a B *).
+| T_Conv a A B :
+  Wt Δ Γ a A ->
+  TyWt Δ B Star ->
+  ICoherent A B ->
+  (* ------------ *)
+  Wt Δ Γ a B.
