@@ -1,11 +1,15 @@
 Require Export typing.
+From Equations Require Import Equations.
+
+Set Equations With UIP.
+Set Equations With Funext.
 
 Lemma ty_renaming Δ0 A k (h : TyWt Δ0 A k):
   forall Δ1 ξ,
     (forall i k, Lookup i Δ0 k -> Lookup (ξ i)  Δ1 k ) ->
     TyWt Δ1 (ren_Ty ξ A) k.
 Proof.
-  elim : Δ0 A k /h; sauto l:on ctrs:TyWt.
+  induction h; sauto l:on ctrs:TyWt.
 Qed.
 
 Lemma ty_weakening Δ A k k0 (h : TyWt Δ A k) :
@@ -22,33 +26,13 @@ Proof.
   induction h; sauto l:on use:ty_weakening.
 Qed.
 
-Equations regularity Δ Γ a A (h : Wt Δ Γ a A) : TyWt Δ A Star :=
-regularity Δ Γ ?(VarTm i) ?(A) (T_Var i A hwf hl) := hwf _ _ hl ;
-regularity Δ Γ a A h := _.
 
-
-Lemma regularity {Δ Γ a A} :
-  Wt Δ Γ a A ->
-  TyWt Δ A Star.
-Proof.
-  induction 1.
-  - apply (b _ _ l).
-  - apply TyT_Fun.
-    apply t.
-    apply IHX.
-  - inversion IHX2; subst.
-    apply X0.
-  - apply TyT_Forall.
-    apply IHX.
-  - inversion IHX; subst.
-    apply ty_morphing with (Δ0 := k :: Δ).
-    apply X0.
-    inversion 1; subst.
-    apply t.
-    simpl.
-    apply TyT_Var. apply X2.
-  - apply t.
-Defined.
+Equations regularity {Δ Γ a A} (h : Wt Δ Γ a A) : TyWt Δ A Star :=
+regularity (a := ?(VarTm i)) (A := ?(A)) (T_Var i A hwf hl) := hwf _ _ hl ;
+regularity (a := ?(TmAbs a)) (A := ?(TyFun A B)) (T_Abs A a B hA ha) :=
+  TyT_Fun Δ A B hA (regularity ha) ;
+regularity (a := ?(TmApp b a)) (A := ?(B)) (T_App a b A B ha hb) with
+  regularity hb  := { | TyT_Fun A B h0 h1 => h1}.
 
 Fixpoint int_kind k :=
   match k with
@@ -74,6 +58,11 @@ Proof.
     apply (IHX X2).
 Defined.
 
+(* Fixpoint int_type_check Δ A k : option (int_kind k) := *)
+(*   match A with *)
+(*   | VarTm i *)
+
+
 Lemma int_type {Δ A k} (h : TyWt Δ A k) (ξ : ty_val Δ) : int_kind k.
 Proof.
   induction h.
@@ -92,14 +81,35 @@ Inductive tm_val (Δ : TyBasis) (ξ : ty_val Δ) : TmBasis -> Type :=
   tm_val Δ ξ Γ ->
   tm_val Δ ξ (A :: Γ).
 
+Equations int_term {Δ Γ a A} (h : Wt Δ Γ a A) ξ (ρ : tm_val Δ ξ Γ) :
+  int_type (regularity h) ξ :=
+  int_term (VarTm i) ξ ρ := _ ;
+  int_term (a := ?(TmApp b a)) (A := ?(B))
+    (T_App a b A B ha hb) ξ ρ with regularity hb
+  := { | TyT_Fun A B h0 h1 =>
+         (int_term hb ξ ρ) (int_term ha ξ ρ)} ;
+  int_term h ξ ρ := _.
+
 Lemma int_term {Δ Γ a A} (h : Wt Δ Γ a A) :
   forall ξ (ρ : tm_val Δ ξ Γ),
-    int_type (regularity h) ξ.
+    int_type (regularity  h) ξ.
 Proof.
-  induction h; simpl.
-  - admit.
-  - sauto lq:on.
+  induction h.
+  - move => ξ hξ. simp regularity.
+    admit.
+  - simp regularity in *.
+    intros ξ ρ.
+    specialize (IHh ξ).
+    simpl.
+    intros k.
+    apply IHh.
+    sauto lq:on.
   - intros ξ ρ.
+    simp regularity.
+
+    funelim (regularity h2).
+
+intros ξ ρ.
     specialize IHh1 with (1 := ρ).
     specialize IHh2 with (1 := ρ).
 

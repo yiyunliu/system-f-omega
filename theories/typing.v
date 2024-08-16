@@ -74,20 +74,20 @@ Inductive Wt Δ Γ : Tm -> Ty -> Type :=
   (* --------------- *)
   Wt Δ Γ (TmApp b a) B
 
-| T_Forall k a A :
-  Wt (k :: Δ) (up_Basis Γ) a A ->
-  (* --------------------------- *)
-  Wt Δ Γ a (TyForall k A)
+(* | T_Forall k a A : *)
+(*   Wt (k :: Δ) (up_Basis Γ) a A -> *)
+(*   (* --------------------------- *) *)
+(*   Wt Δ Γ a (TyForall k A) *)
 
-| T_Inst k a A B :
-  TyWt Δ B k ->
-  Wt Δ Γ a (TyForall k A) ->
-  (* ------------------------ *)
-  Wt Δ Γ a (subst_Ty (B…) A)
+(* | T_Inst k a A B : *)
+(*   TyWt Δ B k -> *)
+(*   Wt Δ Γ a (TyForall k A) -> *)
+(*   (* ------------------------ *) *)
+(*   Wt Δ Γ a (subst_Ty (B…) A) *)
 
-| T_Conv a A B :
-  Wt Δ Γ a A ->
-  TyWt Δ B Star ->
-  ICoherent A B ->
-  (* ------------ *)
-  Wt Δ Γ a B.
+(* | T_Conv a A B : *)
+(*   Wt Δ Γ a A -> *)
+(*   TyWt Δ B Star -> *)
+(*   ICoherent A B -> *)
+(*   (* ------------ *) *)
+(*   Wt Δ Γ a B *).
