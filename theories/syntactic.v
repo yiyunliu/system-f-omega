@@ -79,15 +79,6 @@ Definition ty_val_ren {Δ Δ'}
   (hf : forall i k, Lookup i Δ k -> Lookup (f i) Δ' k) : ty_val Δ :=
   fun i k l => ξ (f i) k (hf _ _ l).
 
-
-(* Inductive *)
-
-(* Lemma tm_val_renaming Δ (ξ : ty_val Δ) : *)
-(*   forall (ρ : tm_val Δ ξ), *)
-(*   forall Δ' f, *)
-(*     (forall i A (h : TyWt Δ A Star) (l : Lookup i Δ A), tm_val_lookup ρ h l = ) *)
-
-
 Lemma int_type {Δ A k} (h : TyWt Δ A k) (ξ : ty_val Δ) : int_kind k.
 Proof.
   induction h.
@@ -140,14 +131,17 @@ Proof.
     apply H.
 Qed.
 
-Inductive tm_val (Δ : TyBasis) (ξ : ty_val Δ) : TmBasis -> Type :=
-| T_Nil :
-  tm_val Δ ξ nil
-| T_Cons {A Γ} (h : TyWt Δ A Star) :
-  int_type h ξ ->
-  tm_val Δ ξ Γ ->
-  tm_val Δ ξ (A :: Γ).
-Check PeanoNat.Nat.add_comm.
+Definition tm_val Δ ξ Γ :=
+  forall i A (l : Lookup i Γ A) (h : TyWt Δ A Star), int_type h ξ.
+
+Equations T_Nil {Δ ξ} : tm_val Δ ξ nil :=
+  T_Nil i A !.
+
+Equations T_Cons Δ (ξ : ty_val Δ) A Γ (h : TyWt Δ A Star)
+  (ρ : tm_val Δ ξ Γ) (s : int_type h ξ) : tm_val Δ ξ (A :: Γ) :=
+  T_Cons Δ ξ ?(A) ?(Γ) h ρ s ?(0) A (Here A Γ) h0
+    with int_type_irrel h h0 ξ, int_type h ξ := { | eq_refl , _ := s } ;
+  T_Cons Δ ξ A Γ h ρ s i A0 (There n Γ A0 A l) h0 := ρ n A0 l h0.
 
 Fail Equations apply_eq (a b : nat) (F : nat -> Type) (h : F (a + b)) :
   F (b + a) :=
@@ -159,12 +153,12 @@ Equations apply_eq (a b : nat) (F : nat -> Type) (h : F (a + b)) :
   apply_eq a b F h with PeanoNat.Nat.add_comm a b, (a + b) :=
     { | eq_refl,  ?(plus b a)  := h }.
 
-Equations tm_val_lookup {i Δ Γ A ξ}
-  (ρ : tm_val Δ ξ Γ) (l : Lookup i Γ A) (h : TyWt Δ A Star) : int_type h ξ :=
-  tm_val_lookup (T_Cons A Γ h' r t) (Here A Γ) h
-    with int_type_irrel h' h ξ,  int_type h' ξ  :=
-    { | eq_refl, _ := r} ;
-  tm_val_lookup (T_Cons A Γ h' r t) (There n Γ A B l) h := tm_val_lookup t l h.
+(* Equations tm_val_lookup {i Δ Γ A ξ} *)
+(*   (ρ : tm_val Δ ξ Γ) (l : Lookup i Γ A) (h : TyWt Δ A Star) : int_type h ξ := *)
+(*   tm_val_lookup (T_Cons A Γ h' r t) (Here A Γ) h *)
+(*     with int_type_irrel h' h ξ,  int_type h' ξ  := *)
+(*     { | eq_refl, _ := r} ; *)
+(*   tm_val_lookup (T_Cons A Γ h' r t) (There n Γ A B l) h := tm_val_lookup t l h. *)
 
 Equations ty_val_ren {Δ Δ'} (ξ : ty_val Δ') f
   (hf : forall i k, Lookup i Δ k -> Lookup (f i) Δ' k) : ty_val Δ :=
