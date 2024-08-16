@@ -47,11 +47,7 @@ Derive Inversion lookup_inv with (forall {U} i (Γ : list U) A, Lookup i Γ A) S
 
 Definition BasisWf Δ Γ := forall i A, Lookup i Γ A -> TyWt Δ A Star.
 
-Fixpoint up_Basis Γ :=
-  match Γ with
-  | nil => nil
-  | A :: Γ => ren_Ty S A :: up_Basis Γ
-  end.
+Definition up_Basis := map (ren_Ty S).
 
 Inductive Wt Δ Γ : Tm -> Ty -> Type :=
 | T_Var i A :

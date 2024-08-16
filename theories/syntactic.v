@@ -1,13 +1,13 @@
 Require Export typing.
 From Equations Require Import Equations.
 
-Lemma ty_renaming Δ0 A k (h : TyWt Δ0 A k):
-  forall Δ1 ξ,
+Lemma ty_renaming {Δ0 A k} (h : TyWt Δ0 A k):
+  forall {Δ1 ξ},
     (forall i k, Lookup i Δ0 k -> Lookup (ξ i)  Δ1 k ) ->
     TyWt Δ1 (ren_Ty ξ A) k.
 Proof.
   induction h; sauto l:on ctrs:TyWt.
-Qed.
+Defined.
 
 Lemma ty_weakening Δ A k k0 (h : TyWt Δ A k) :
   TyWt (k0 :: Δ) (ren_Ty S A) k.
@@ -131,8 +131,23 @@ Proof.
     apply H.
 Qed.
 
+
+Lemma int_type_ren {Δ Δ' A k} (h : TyWt Δ A k)
+  (ξ : ty_val Δ') f
+  (hf : forall i k, Lookup i Δ k -> Lookup (f i) Δ' k) :
+  int_type (ty_renaming h hf) ξ = int_type h (ty_val_ren ξ f hf).
+  move : Δ' ξ f hf.
+  elim : Δ A k /h.
+  - reflexivity.
+Admitted.
+
 Definition tm_val Δ ξ Γ :=
   forall i A (l : Lookup i Γ A) (h : TyWt Δ A Star), int_type h ξ.
+
+Lemma tm_val_ren_ty {Δ Δ' Γ} (ξ : ty_val Δ') (ρ : tm_val Δ' ξ Γ) f
+  (hf : forall i k, Lookup i Δ k -> Lookup (f i) Δ' k) :
+  tm_val Δ (ty_val_ren ξ f hf) (map (ren_Ty f) Γ).
+Admitted.
 
 Equations T_Nil {Δ ξ} : tm_val Δ ξ nil :=
   T_Nil i A !.
@@ -141,7 +156,7 @@ Equations T_Cons Δ (ξ : ty_val Δ) A Γ (h : TyWt Δ A Star)
   (ρ : tm_val Δ ξ Γ) (s : int_type h ξ) : tm_val Δ ξ (A :: Γ) :=
   T_Cons Δ ξ ?(A) ?(Γ) h ρ s ?(0) A (Here A Γ) h0
     with int_type_irrel h h0 ξ, int_type h ξ := { | eq_refl , _ := s } ;
-  T_Cons Δ ξ A Γ h ρ s i A0 (There n Γ A0 A l) h0 := ρ n A0 l h0.
+  T_Cons Δ ξ ?(A) ?(Γ) h ρ s i A0 (There n Γ A0 A l) h0 := ρ n A0 l h0.
 
 Fail Equations apply_eq (a b : nat) (F : nat -> Type) (h : F (a + b)) :
   F (b + a) :=
@@ -153,27 +168,18 @@ Equations apply_eq (a b : nat) (F : nat -> Type) (h : F (a + b)) :
   apply_eq a b F h with PeanoNat.Nat.add_comm a b, (a + b) :=
     { | eq_refl,  ?(plus b a)  := h }.
 
+(* Definition ty_val_ren Δ ξ Γ *)
+(*   (ξ : ty_val Δ') f *)
+(*   (hf : forall i k, Lookup i Δ k -> Lookup (f i) Δ' k) : ty_val Δ := *)
+(*   fun i k l => ξ (f i) k (hf _ _ l). *)
+
+
 (* Equations tm_val_lookup {i Δ Γ A ξ} *)
 (*   (ρ : tm_val Δ ξ Γ) (l : Lookup i Γ A) (h : TyWt Δ A Star) : int_type h ξ := *)
 (*   tm_val_lookup (T_Cons A Γ h' r t) (Here A Γ) h *)
 (*     with int_type_irrel h' h ξ,  int_type h' ξ  := *)
 (*     { | eq_refl, _ := r} ; *)
 (*   tm_val_lookup (T_Cons A Γ h' r t) (There n Γ A B l) h := tm_val_lookup t l h. *)
-
-Equations ty_val_ren {Δ Δ'} (ξ : ty_val Δ') f
-  (hf : forall i k, Lookup i Δ k -> Lookup (f i) Δ' k) : ty_val Δ :=
-  ty_val_ren (@V_Cons Δ' k h ξ) f hf :=
-    ty_val_ren ξ _ ;
-  ty_val_ren (Δ := nil) V_Nil f hf := V_Nil ;
-  ty_val_ren (Δ := k :: Δ0) V_Nil f hf
-    with hf 0 k (Here k Δ0) := { | p := _ }.
-Next Obligation.
-  inversion p.
-Defined.
-
-Next Obligation.
-
-
 
 (* Definition ty_val_ren Δ ξ (f : nat -> nat) Δ' : *)
 (*   (forall i k, Lookup i Δ k -> Lookup (ξ i) Δ' k) -> *)
@@ -190,9 +196,9 @@ Lemma int_term {Δ Γ a A} (h : Wt Δ Γ a A) :
     int_type (regularity h) ξ.
 Proof.
   induction h.
-  - simp regularity => *.
-    qauto use:tm_val_lookup.
-  - hauto lq:on ctrs:tm_val rew:db:regularity.
+  - simp regularity => ξ ρ.
+    apply (ρ _ _ l).
+  - hauto q:on use:T_Cons rew:db:regularity.
   - move => ξ ρ.
     move E : (regularity h2) => S.
     dependent elimination S.
@@ -200,6 +206,19 @@ Proof.
   - move => ξ ρ.
     simp regularity => /=.
     move => a0. apply IHh.
+    rewrite /tm_val.
+    rewrite /up_Basis.
+    move => i A0 hA0.
+    have A1 : Ty by admit.
+    have  ? : ren_Ty S A1 =  A0 by admit.
+    have hl : Lookup i Γ A1 by admit.
+    subst.
+    apply ρ in hl.
+    intros h0.
+    have h1 : TyWt Δ A1 Star by admit.
+    specialize (hl h1).
+t    rewrite /up_Basis.
+    apply tm_val_ren_ty.
     (* tm_val weakening *)
     admit.
   - move => ξ ρ.
