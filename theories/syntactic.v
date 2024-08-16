@@ -1,9 +1,6 @@
 Require Export typing.
 From Equations Require Import Equations.
 
-Set Equations With UIP.
-Set Equations With Funext.
-
 Lemma ty_renaming Δ0 A k (h : TyWt Δ0 A k):
   forall Δ1 ξ,
     (forall i k, Lookup i Δ0 k -> Lookup (ξ i)  Δ1 k ) ->
@@ -34,6 +31,22 @@ regularity (a := ?(TmAbs a)) (A := ?(TyFun A B)) (T_Abs A a B hA ha) :=
 regularity (a := ?(TmApp b a)) (A := ?(B)) (T_App a b A B ha hb) with
   regularity hb  := { | TyT_Fun A B h0 h1 => h1}.
 
+(* Lemma regularity_irrel {Δ Γ a A} (h h0 : Wt Δ Γ a A ) : *)
+(*   regularity h = regularity h0. *)
+(* Proof. *)
+(*   move : h0. *)
+(*   funelim (regularity h). *)
+(*   - move => h0. *)
+(*     funelim (regularity h0). *)
+(*     simp regularity. *)
+(*     move : hwf hwf0. *)
+(*     rewrite /BasisWf. *)
+
+(*   admit. *)
+(*   ad *)
+
+
+
 Fixpoint int_kind k :=
   match k with
   | Star => Prop
@@ -61,17 +74,57 @@ Defined.
 (* Fixpoint int_type_check Δ A k : option (int_kind k) := *)
 (*   match A with *)
 (*   | VarTm i *)
-
+(* Equations int_type {Δ A k} (h : TyWt Δ A k) (ξ : ty_val Δ) : int_kind k := *)
+(*   int_type (A := ?(VarTy i)) (k := ?(k)) *)
+(*     (TyT_Var i k l) ξ := ty_val_lookup l ξ ; *)
+(*   int_type (A := ?(TyAbs A)) (k := ?(Arr k0 k1)) *)
+(*     (TyT_Abs A k0 k1 hA) ξ := fun a => int_type hA (V_Cons a ξ) ; *)
+(*   int_type (A := ?(TyApp b a)) (k := ?(k1)) *)
+(*     (TyT_App b a k0 k1 hb ha) ξ := int_type hb ξ (int_type ha ξ)  ; *)
+(*   int_type (A := ?(TyFun A B)) (k := ?(Star)) *)
+(*     (TyT_Fun A B hA hB) ξ := int_type hA ξ -> int_type hB ξ ; *)
+(*   int_type (A := ?(TyForall k A)) (k := ?(Star)) *)
+(*     (TyT_Forall k A hA) ξ := forall a, int_type hA (V_Cons a ξ). *)
 
 Lemma int_type {Δ A k} (h : TyWt Δ A k) (ξ : ty_val Δ) : int_kind k.
 Proof.
   induction h.
   - apply : ty_val_lookup l ξ.
-  - move => s0; apply : IHh (V_Cons s0 ξ).
+  - intros s0; apply : IHh (V_Cons s0 ξ).
   - apply : IHh1 ξ (IHh2 ξ).
   - apply : (IHh1 ξ -> IHh2 ξ).
   - apply : (forall (a : int_kind k), IHh (V_Cons a ξ)).
 Defined.
+
+Lemma int_type_irrel {Δ A k} (h h0 : TyWt Δ A k) (ξ : ty_val Δ) :
+  int_type h ξ = int_type h0 ξ.
+Proof.
+  move : ξ h0.
+  elim : Δ A k /h.
+  - intros .
+    dependent elimination h0.
+    simpl.
+    admit.
+  - intros Δ A k0 k1 t iht ξ h0.
+    dependent elimination h0.
+    simpl.
+    extensionality x.
+    apply iht.
+  - intros.
+    dependent elimination h0.
+    simpl.
+    have ? : k4 = k0 by admit. subst.
+    scongruence.
+  - intros.
+    dependent elimination h0.
+    simpl.
+    scongruence.
+  - intros.
+    dependent elimination h0.
+    simpl.
+    extensionality h.
+    apply H.
+Admitted.
 
 Inductive tm_val (Δ : TyBasis) (ξ : ty_val Δ) : TmBasis -> Type :=
 | T_Nil :
@@ -81,14 +134,14 @@ Inductive tm_val (Δ : TyBasis) (ξ : ty_val Δ) : TmBasis -> Type :=
   tm_val Δ ξ Γ ->
   tm_val Δ ξ (A :: Γ).
 
-Equations int_term {Δ Γ a A} (h : Wt Δ Γ a A) ξ (ρ : tm_val Δ ξ Γ) :
-  int_type (regularity h) ξ :=
-  int_term (VarTm i) ξ ρ := _ ;
-  int_term (a := ?(TmApp b a)) (A := ?(B))
-    (T_App a b A B ha hb) ξ ρ with regularity hb
-  := { | TyT_Fun A B h0 h1 =>
-         (int_term hb ξ ρ) (int_term ha ξ ρ)} ;
-  int_term h ξ ρ := _.
+(* Equations int_term {Δ Γ a A} (h : Wt Δ Γ a A) ξ (ρ : tm_val Δ ξ Γ) : *)
+(*   int_type (regularity h) ξ := *)
+(*   int_term (VarTm i) ξ ρ := _ ; *)
+(*   int_term (a := ?(TmApp b a)) (A := ?(B)) *)
+(*     (T_App a b A B ha hb) ξ ρ with regularity hb *)
+(*   := { | TyT_Fun A B h0 h1 => *)
+(*          (int_term hb ξ ρ) (int_term ha ξ ρ)} ; *)
+(*   int_term h ξ ρ := _. *)
 
 Lemma int_term {Δ Γ a A} (h : Wt Δ Γ a A) :
   forall ξ (ρ : tm_val Δ ξ Γ),
@@ -104,7 +157,26 @@ Proof.
     intros k.
     apply IHh.
     sauto lq:on.
-  - intros ξ ρ.
+  - move => ξ ρ.
+    move E : (regularity h2) => S.
+    dependent elimination S.
+    simp regularity.
+    rewrite E in IHh2 *.
+    simp regularity.
+    specialize IHh1 with (1 := ρ).
+    specialize IHh2 with (1 := ρ).
+    hauto lq:on use:int_type_irrel.
+
+
+
+
+
+intros ξ ρ.
+    simp regularity.
+
+    simp regularity.
+
+
     simp regularity.
 
     funelim (regularity h2).
