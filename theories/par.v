@@ -283,6 +283,9 @@ Qed.
 Lemma C_App : ltac2:(gen_cong P_App Coherent).
 Proof. hauto lq:on use:PS_App unfold:Coherent. Qed.
 
+Definition ICoherent A0 A1 : Prop :=
+  exists B, rtc TyPar A0 B /\ rtc TyPar A1 B.
+
 (* Lemma pars_pi_inv A B U : *)
 (*   Pi A B ⇒* U -> exists A0 B0, U = Pi A0 B0 /\ A ⇒* A0 /\ B ⇒* B0. *)
 (* Proof. *)

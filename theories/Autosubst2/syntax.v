@@ -395,7 +395,9 @@ Qed.
 Inductive Ty : Type :=
   | VarTy : nat -> Ty
   | TyAbs : Ty -> Ty
-  | TyApp : Ty -> Ty -> Ty.
+  | TyApp : Ty -> Ty -> Ty
+  | TyForall : Ki -> Ty -> Ty
+  | TyFun : Ty -> Ty -> Ty.
 
 Lemma congr_TyAbs {s0 : Ty} {t0 : Ty} (H0 : s0 = t0) : TyAbs s0 = TyAbs t0.
 Proof.
@@ -409,6 +411,20 @@ exact (eq_trans (eq_trans eq_refl (ap (fun x => TyApp x s1) H0))
          (ap (fun x => TyApp t0 x) H1)).
 Qed.
 
+Lemma congr_TyForall {s0 : Ki} {s1 : Ty} {t0 : Ki} {t1 : Ty} (H0 : s0 = t0)
+  (H1 : s1 = t1) : TyForall s0 s1 = TyForall t0 t1.
+Proof.
+exact (eq_trans (eq_trans eq_refl (ap (fun x => TyForall x s1) H0))
+         (ap (fun x => TyForall t0 x) H1)).
+Qed.
+
+Lemma congr_TyFun {s0 : Ty} {s1 : Ty} {t0 : Ty} {t1 : Ty} (H0 : s0 = t0)
+  (H1 : s1 = t1) : TyFun s0 s1 = TyFun t0 t1.
+Proof.
+exact (eq_trans (eq_trans eq_refl (ap (fun x => TyFun x s1) H0))
+         (ap (fun x => TyFun t0 x) H1)).
+Qed.
+
 Lemma upRen_Ty_Ty (xi : nat -> nat) : nat -> nat.
 Proof.
 exact (up_ren xi).
@@ -419,6 +435,8 @@ Fixpoint ren_Ty (xi_Ty : nat -> nat) (s : Ty) {struct s} : Ty :=
   | VarTy s0 => VarTy (xi_Ty s0)
   | TyAbs s0 => TyAbs (ren_Ty (upRen_Ty_Ty xi_Ty) s0)
   | TyApp s0 s1 => TyApp (ren_Ty xi_Ty s0) (ren_Ty xi_Ty s1)
+  | TyForall s0 s1 => TyForall s0 (ren_Ty (upRen_Ty_Ty xi_Ty) s1)
+  | TyFun s0 s1 => TyFun (ren_Ty xi_Ty s0) (ren_Ty xi_Ty s1)
   end.
 
 Lemma up_Ty_Ty (sigma : nat -> Ty) : nat -> Ty.
@@ -431,6 +449,8 @@ Fixpoint subst_Ty (sigma_Ty : nat -> Ty) (s : Ty) {struct s} : Ty :=
   | VarTy s0 => sigma_Ty s0
   | TyAbs s0 => TyAbs (subst_Ty (up_Ty_Ty sigma_Ty) s0)
   | TyApp s0 s1 => TyApp (subst_Ty sigma_Ty s0) (subst_Ty sigma_Ty s1)
+  | TyForall s0 s1 => TyForall s0 (subst_Ty (up_Ty_Ty sigma_Ty) s1)
+  | TyFun s0 s1 => TyFun (subst_Ty sigma_Ty s0) (subst_Ty sigma_Ty s1)
   end.
 
 Lemma upId_Ty_Ty (sigma : nat -> Ty) (Eq : forall x, sigma x = VarTy x) :
@@ -452,6 +472,12 @@ subst_Ty sigma_Ty s = s :=
       congr_TyAbs (idSubst_Ty (up_Ty_Ty sigma_Ty) (upId_Ty_Ty _ Eq_Ty) s0)
   | TyApp s0 s1 =>
       congr_TyApp (idSubst_Ty sigma_Ty Eq_Ty s0)
+        (idSubst_Ty sigma_Ty Eq_Ty s1)
+  | TyForall s0 s1 =>
+      congr_TyForall (eq_refl s0)
+        (idSubst_Ty (up_Ty_Ty sigma_Ty) (upId_Ty_Ty _ Eq_Ty) s1)
+  | TyFun s0 s1 =>
+      congr_TyFun (idSubst_Ty sigma_Ty Eq_Ty s0)
         (idSubst_Ty sigma_Ty Eq_Ty s1)
   end.
 
@@ -476,6 +502,13 @@ ren_Ty xi_Ty s = ren_Ty zeta_Ty s :=
            (upExtRen_Ty_Ty _ _ Eq_Ty) s0)
   | TyApp s0 s1 =>
       congr_TyApp (extRen_Ty xi_Ty zeta_Ty Eq_Ty s0)
+        (extRen_Ty xi_Ty zeta_Ty Eq_Ty s1)
+  | TyForall s0 s1 =>
+      congr_TyForall (eq_refl s0)
+        (extRen_Ty (upRen_Ty_Ty xi_Ty) (upRen_Ty_Ty zeta_Ty)
+           (upExtRen_Ty_Ty _ _ Eq_Ty) s1)
+  | TyFun s0 s1 =>
+      congr_TyFun (extRen_Ty xi_Ty zeta_Ty Eq_Ty s0)
         (extRen_Ty xi_Ty zeta_Ty Eq_Ty s1)
   end.
 
@@ -502,6 +535,13 @@ subst_Ty sigma_Ty s = subst_Ty tau_Ty s :=
   | TyApp s0 s1 =>
       congr_TyApp (ext_Ty sigma_Ty tau_Ty Eq_Ty s0)
         (ext_Ty sigma_Ty tau_Ty Eq_Ty s1)
+  | TyForall s0 s1 =>
+      congr_TyForall (eq_refl s0)
+        (ext_Ty (up_Ty_Ty sigma_Ty) (up_Ty_Ty tau_Ty) (upExt_Ty_Ty _ _ Eq_Ty)
+           s1)
+  | TyFun s0 s1 =>
+      congr_TyFun (ext_Ty sigma_Ty tau_Ty Eq_Ty s0)
+        (ext_Ty sigma_Ty tau_Ty Eq_Ty s1)
   end.
 
 Lemma up_ren_ren_Ty_Ty (xi : nat -> nat) (zeta : nat -> nat)
@@ -522,6 +562,13 @@ Fixpoint compRenRen_Ty (xi_Ty : nat -> nat) (zeta_Ty : nat -> nat)
            (upRen_Ty_Ty rho_Ty) (up_ren_ren _ _ _ Eq_Ty) s0)
   | TyApp s0 s1 =>
       congr_TyApp (compRenRen_Ty xi_Ty zeta_Ty rho_Ty Eq_Ty s0)
+        (compRenRen_Ty xi_Ty zeta_Ty rho_Ty Eq_Ty s1)
+  | TyForall s0 s1 =>
+      congr_TyForall (eq_refl s0)
+        (compRenRen_Ty (upRen_Ty_Ty xi_Ty) (upRen_Ty_Ty zeta_Ty)
+           (upRen_Ty_Ty rho_Ty) (up_ren_ren _ _ _ Eq_Ty) s1)
+  | TyFun s0 s1 =>
+      congr_TyFun (compRenRen_Ty xi_Ty zeta_Ty rho_Ty Eq_Ty s0)
         (compRenRen_Ty xi_Ty zeta_Ty rho_Ty Eq_Ty s1)
   end.
 
@@ -548,6 +595,13 @@ subst_Ty tau_Ty (ren_Ty xi_Ty s) = subst_Ty theta_Ty s :=
            (up_Ty_Ty theta_Ty) (up_ren_subst_Ty_Ty _ _ _ Eq_Ty) s0)
   | TyApp s0 s1 =>
       congr_TyApp (compRenSubst_Ty xi_Ty tau_Ty theta_Ty Eq_Ty s0)
+        (compRenSubst_Ty xi_Ty tau_Ty theta_Ty Eq_Ty s1)
+  | TyForall s0 s1 =>
+      congr_TyForall (eq_refl s0)
+        (compRenSubst_Ty (upRen_Ty_Ty xi_Ty) (up_Ty_Ty tau_Ty)
+           (up_Ty_Ty theta_Ty) (up_ren_subst_Ty_Ty _ _ _ Eq_Ty) s1)
+  | TyFun s0 s1 =>
+      congr_TyFun (compRenSubst_Ty xi_Ty tau_Ty theta_Ty Eq_Ty s0)
         (compRenSubst_Ty xi_Ty tau_Ty theta_Ty Eq_Ty s1)
   end.
 
@@ -587,6 +641,13 @@ ren_Ty zeta_Ty (subst_Ty sigma_Ty s) = subst_Ty theta_Ty s :=
   | TyApp s0 s1 =>
       congr_TyApp (compSubstRen_Ty sigma_Ty zeta_Ty theta_Ty Eq_Ty s0)
         (compSubstRen_Ty sigma_Ty zeta_Ty theta_Ty Eq_Ty s1)
+  | TyForall s0 s1 =>
+      congr_TyForall (eq_refl s0)
+        (compSubstRen_Ty (up_Ty_Ty sigma_Ty) (upRen_Ty_Ty zeta_Ty)
+           (up_Ty_Ty theta_Ty) (up_subst_ren_Ty_Ty _ _ _ Eq_Ty) s1)
+  | TyFun s0 s1 =>
+      congr_TyFun (compSubstRen_Ty sigma_Ty zeta_Ty theta_Ty Eq_Ty s0)
+        (compSubstRen_Ty sigma_Ty zeta_Ty theta_Ty Eq_Ty s1)
   end.
 
 Lemma up_subst_subst_Ty_Ty (sigma : nat -> Ty) (tau_Ty : nat -> Ty)
@@ -624,6 +685,13 @@ subst_Ty tau_Ty (subst_Ty sigma_Ty s) = subst_Ty theta_Ty s :=
            (up_Ty_Ty theta_Ty) (up_subst_subst_Ty_Ty _ _ _ Eq_Ty) s0)
   | TyApp s0 s1 =>
       congr_TyApp (compSubstSubst_Ty sigma_Ty tau_Ty theta_Ty Eq_Ty s0)
+        (compSubstSubst_Ty sigma_Ty tau_Ty theta_Ty Eq_Ty s1)
+  | TyForall s0 s1 =>
+      congr_TyForall (eq_refl s0)
+        (compSubstSubst_Ty (up_Ty_Ty sigma_Ty) (up_Ty_Ty tau_Ty)
+           (up_Ty_Ty theta_Ty) (up_subst_subst_Ty_Ty _ _ _ Eq_Ty) s1)
+  | TyFun s0 s1 =>
+      congr_TyFun (compSubstSubst_Ty sigma_Ty tau_Ty theta_Ty Eq_Ty s0)
         (compSubstSubst_Ty sigma_Ty tau_Ty theta_Ty Eq_Ty s1)
   end.
 
@@ -703,6 +771,13 @@ Fixpoint rinst_inst_Ty (xi_Ty : nat -> nat) (sigma_Ty : nat -> Ty)
            (rinstInst_up_Ty_Ty _ _ Eq_Ty) s0)
   | TyApp s0 s1 =>
       congr_TyApp (rinst_inst_Ty xi_Ty sigma_Ty Eq_Ty s0)
+        (rinst_inst_Ty xi_Ty sigma_Ty Eq_Ty s1)
+  | TyForall s0 s1 =>
+      congr_TyForall (eq_refl s0)
+        (rinst_inst_Ty (upRen_Ty_Ty xi_Ty) (up_Ty_Ty sigma_Ty)
+           (rinstInst_up_Ty_Ty _ _ Eq_Ty) s1)
+  | TyFun s0 s1 =>
+      congr_TyFun (rinst_inst_Ty xi_Ty sigma_Ty Eq_Ty s0)
         (rinst_inst_Ty xi_Ty sigma_Ty Eq_Ty s1)
   end.
 

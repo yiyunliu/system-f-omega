@@ -1,6 +1,115 @@
 Require Export typing.
 
-Lemma Here' : forall A Γ T, T = A ⟨shift⟩ ->  Lookup 0 (A :: Γ) T.
+Lemma ty_renaming Δ0 A k (h : TyWt Δ0 A k):
+  forall Δ1 ξ,
+    (forall i k, Lookup i Δ0 k -> Lookup (ξ i)  Δ1 k ) ->
+    TyWt Δ1 (ren_Ty ξ A) k.
+Proof.
+  elim : Δ0 A k /h; sauto l:on ctrs:TyWt.
+Qed.
+
+Lemma ty_weakening Δ A k k0 (h : TyWt Δ A k) :
+  TyWt (k0 :: Δ) (ren_Ty S A) k.
+Proof.
+  sauto lq:on use:ty_renaming.
+Qed.
+
+Lemma ty_morphing Δ0 A k (h : TyWt Δ0 A k):
+  forall Δ1 ρ,
+    (forall i k, Lookup i Δ0 k -> TyWt Δ1 (ρ i) k) ->
+    TyWt Δ1 (subst_Ty ρ A) k.
+Proof.
+  induction h; sauto l:on use:ty_weakening.
+Qed.
+
+Equations regularity Δ Γ a A (h : Wt Δ Γ a A) : TyWt Δ A Star :=
+regularity Δ Γ ?(VarTm i) ?(A) (T_Var i A hwf hl) := hwf _ _ hl ;
+regularity Δ Γ a A h := _.
+
+
+Lemma regularity {Δ Γ a A} :
+  Wt Δ Γ a A ->
+  TyWt Δ A Star.
+Proof.
+  induction 1.
+  - apply (b _ _ l).
+  - apply TyT_Fun.
+    apply t.
+    apply IHX.
+  - inversion IHX2; subst.
+    apply X0.
+  - apply TyT_Forall.
+    apply IHX.
+  - inversion IHX; subst.
+    apply ty_morphing with (Δ0 := k :: Δ).
+    apply X0.
+    inversion 1; subst.
+    apply t.
+    simpl.
+    apply TyT_Var. apply X2.
+  - apply t.
+Defined.
+
+Fixpoint int_kind k :=
+  match k with
+  | Star => Prop
+  | Arr k0 k1 => int_kind k0 -> int_kind k1
+  end.
+
+Inductive ty_val : TyBasis -> Type :=
+| V_Nil :
+  ty_val nil
+| V_Cons {Δ k} :
+  int_kind k ->
+  ty_val Δ ->
+  ty_val (k :: Δ).
+
+Lemma ty_val_lookup {i Δ k} :
+  Lookup i Δ k -> ty_val Δ -> int_kind k.
+Proof.
+  induction 1.
+  - inversion 1; subst.
+    apply X0.
+  - inversion 1; subst.
+    apply (IHX X2).
+Defined.
+
+Lemma int_type {Δ A k} (h : TyWt Δ A k) (ξ : ty_val Δ) : int_kind k.
+Proof.
+  induction h.
+  - apply : ty_val_lookup l ξ.
+  - move => s0; apply : IHh (V_Cons s0 ξ).
+  - apply : IHh1 ξ (IHh2 ξ).
+  - apply : (IHh1 ξ -> IHh2 ξ).
+  - apply : (forall (a : int_kind k), IHh (V_Cons a ξ)).
+Defined.
+
+Inductive tm_val (Δ : TyBasis) (ξ : ty_val Δ) : TmBasis -> Type :=
+| T_Nil :
+  tm_val Δ ξ nil
+| T_Cons {A Γ} (h : TyWt Δ A Star) :
+  int_type h ξ ->
+  tm_val Δ ξ Γ ->
+  tm_val Δ ξ (A :: Γ).
+
+Lemma int_term {Δ Γ a A} (h : Wt Δ Γ a A) :
+  forall ξ (ρ : tm_val Δ ξ Γ),
+    int_type (regularity h) ξ.
+Proof.
+  induction h; simpl.
+  - admit.
+  - sauto lq:on.
+  - intros ξ ρ.
+    specialize IHh1 with (1 := ρ).
+    specialize IHh2 with (1 := ρ).
+
+dependent elimination h2.
+move /regularity in h2.
+    inversion h2; subst.
+inversion h2; subst. simpl.
+    intros ξ. simpl.
+Print int_type.
+Lemma Here' : forall {U} A (Γ : list U) T,  Lookup 0 (A :: Γ) T.
 Proof. move => > ->. by apply Here. Qed.
 
 Lemma There' : forall n A Γ B T, T = A ⟨shift⟩ ->
