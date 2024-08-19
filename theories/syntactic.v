@@ -1,11 +1,64 @@
 Require Export typing.
 From Equations Require Import Equations.
 
+(* Should have been iff? *)
 Definition ren_ok {T} f (Δ0 Δ1 : list T) := forall i k, Lookup i Δ0 k -> Lookup (f i)  Δ1 k.
 
 Equations ren_up {T f k} (Δ0 Δ1 : list T) (hf : ren_ok f Δ0 Δ1) : ren_ok (upRen_Ty_Ty f) (k :: Δ0) (k :: Δ1) :=
   ren_up Δ0 Δ1 hf _ _ (Here k Δ0) := (Here k Δ1);
   ren_up Δ0 Δ1 hf _ _ (There n Δ0 k0 k l) := There _ _ _ _ (hf _ _ l).
+
+(* Lemma lookup_antirenaming {T Δ0 Δ1 f i} {k : T} (h : ren_ok f Δ0 Δ1) (hl : Lookup (f i) Δ1 k) : *)
+(*   Lookup i Δ0 k. *)
+(* Proof. *)
+(*   move : hl. *)
+(*   move E : (f i) => j h0. *)
+(*   move : Δ0 i f h E. *)
+(*   elim : j Δ1  k /h0. *)
+(*   - *)
+
+Definition ren_ok' {T} f (Δ0 Δ1 : list T) := prod (forall i k, Lookup i Δ0 k -> Lookup (f i) Δ1 k) (forall i k, Lookup (f i) Δ1 k -> Lookup i Δ0 k ).
+
+Lemma ren'_up {T f k} (Δ0 Δ1 : list T) (hf : ren_ok' f Δ0 Δ1) : ren_ok' (upRen_Ty_Ty f) (k :: Δ0) (k :: Δ1).
+Proof.
+  rewrite /ren_ok' in hf *.
+  destruct hf as [hf0 hf1].
+  split.
+  - sfirstorder use:ren_up unfold:ren_ok.
+  - inversion 1; subst.
+    case : i X H0 => //=.
+    hauto l:on.
+    case : i H0 X X0 => //=.
+    intros n0. rewrite /funcomp.
+    move => [?]. subst.
+    sauto lq:on.
+Qed.
+
+Lemma ren_S' {T} (k : T) Δ  : ren_ok' S Δ (k :: Δ).
+  rewrite /ren_ok'.
+  sauto lq:on.
+Qed.
+
+Lemma ty_antirenaming {Δ0 Δ1 f A k} (h : TyWt Δ1 (ren_Ty f A) k) (hf : ren_ok' f Δ0 Δ1) : TyWt Δ0 A k.
+Proof.
+  move : h.
+  move E : (ren_Ty f A) => U h.
+  move : Δ0 f hf A E.
+  elim : Δ1 U k /h.
+  - move => Δ i k hk Δ0 f hf []//.
+    simpl.
+    move => n [?]. subst.
+    apply TyT_Var. rewrite /ren_ok' in hf.
+    sfirstorder.
+  - move => Δ A k0 k1 hA ihA Δ0 f hf []//=.
+    hauto l:on use:ren'_up, TyT_Abs.
+  - move => Δ b a k0 k1 hb ihb ha iha Δ0 f hf []//=.
+    hauto lq:on use:TyT_App.
+  - move => Δ A B hA ihA hB ihB Δ0 f hf []//=.
+    hauto lq:on use:TyT_Fun.
+  - move => Δ k A hA ihA Δ0 f hf []//=.
+    hauto l:on use:ren'_up, TyT_Forall.
+Qed.
 
 Equations ty_renaming {Δ0 Δ1 f A k} (h : TyWt Δ0 A k) (hf : ren_ok f Δ0 Δ1) : TyWt Δ1 (ren_Ty f A) k :=
   ty_renaming (TyT_Var i k l) hf := TyT_Var Δ1 (f i) k (hf _ _ l) ;
@@ -146,6 +199,9 @@ Proof.
     apply H.
 Qed.
 
+Equations ren_S {T} (k : T) Δ  : ren_ok S Δ (k :: Δ) :=
+  ren_S k Δ i k0 l := There _ _ _ _ l.
+
 Lemma int_type_ren {Δ Δ' A k} (h : TyWt Δ A k)
   (ξ : ty_val Δ)
   (ξ' : ty_val Δ') f
@@ -186,10 +242,10 @@ Qed.
 Definition tm_val Δ ξ Γ :=
   forall i A (l : Lookup i Γ A) (h : TyWt Δ A Star), int_type h ξ.
 
-Lemma tm_val_ren_ty {Δ Δ' Γ} (ξ : ty_val Δ') (ρ : tm_val Δ' ξ Γ) f
-  (hf : forall i k, Lookup i Δ k -> Lookup (f i) Δ' k) :
-  tm_val Δ (ty_val_ren ξ f hf) (map (ren_Ty f) Γ).
-Admitted.
+(* Lemma tm_val_ren_ty {Δ Δ' Γ} (ξ : ty_val Δ') (ρ : tm_val Δ' ξ Γ) f *)
+(*   (hf : forall i k, Lookup i Δ k -> Lookup (f i) Δ' k) : *)
+(*   tm_val Δ (ty_val_ren ξ f hf) (map (ren_Ty f) Γ). *)
+(* Admitted. *)
 
 Equations T_Nil {Δ ξ} : tm_val Δ ξ nil :=
   T_Nil i A !.
@@ -233,6 +289,12 @@ Equations apply_eq (a b : nat) (F : nat -> Type) (h : F (a + b)) :
 (*   ty_val_lookup *)
 (*   ty_val_ren Δ ξ *)
 
+Lemma lookup_map_inv {T U} (f : T -> U) i Γ A : Lookup i (map f Γ) A -> {b : T &  ( prod (Lookup i Γ b) (A = f b))}.
+  move E : (list_map f Γ) => Δ h.
+  move : Γ E.
+  elim : i Δ A /h; sauto lq:on rew:off.
+Defined.
+
 Lemma int_term {Δ Γ a A} (h : Wt Δ Γ a A) :
   forall ξ (ρ : tm_val Δ ξ Γ),
     int_type (regularity h) ξ.
@@ -248,24 +310,21 @@ Proof.
   - move => ξ ρ.
     simp regularity => /=.
     move => a0. apply IHh.
-    Check tm_val_ren_ty.
+    (* Check tm_val_ren_ty. *)
     rewrite /tm_val.
     rewrite /up_Basis.
     move => i A0 hA0.
-    have A1 : Ty by admit.
-    have  ? : ren_Ty S A1 =  A0 by admit.
-    have hl : Lookup i Γ A1 by admit.
+    have [A1 [hl ?]] : { b : Ty & prod (Lookup i Γ b) (A0 = ren_Ty S b)} by eauto using lookup_map_inv.
     subst.
     apply ρ in hl.
     intros h0.
-    have h1 : TyWt Δ A1 Star by admit.
+    have h1 : TyWt Δ A1 Star by eauto using ty_antirenaming, ren_S'.
     specialize (hl h1).
-    rewrite /up_Basis.
-    (* apply tm_val_ren_ty. *)
-    (* tm_val weakening *)
-    (* requires int_type weakening *)
-    (* use the system f version as a reference *)
-    admit.
+    have : int_type h1 ξ = int_type (ty_renaming h1 (ren_S _ _)) (V_Cons a0 ξ).
+    + hauto l:on use:int_type_ren rew:db:ren_S, V_Cons.
+    + have -> : int_type (ty_renaming h1 (ren_S k Δ)) (V_Cons a0 ξ) = int_type h0 (V_Cons a0 ξ)
+        by eauto using int_type_irrel.
+      congruence.
   - move => ξ ρ.
     move E :  (regularity h) => S.
     dependent elimination S.
@@ -274,32 +333,15 @@ Proof.
     move : IHh.
     rewrite E.
     simp regularity. simpl.
-    (* int_type substitution *)
+    move /(_ (int_type t ξ)).
+    (* delayed substitution for int_type *)
     admit.
-  - move => ξ hξ.
+  - move => ξ ρ.
+    move /(_ ξ ρ) : IHh.
+    simp regularity.
+    rewrite /ICoherent in i.
 Admitted.
 
-
-intros ξ ρ.
-    simp regularity.
-
-    simp regularity.
-
-
-    simp regularity.
-
-    funelim (regularity h2).
-
-intros ξ ρ.
-    specialize IHh1 with (1 := ρ).
-    specialize IHh2 with (1 := ρ).
-
-dependent elimination h2.
-move /regularity in h2.
-    inversion h2; subst.
-inversion h2; subst. simpl.
-    intros ξ. simpl.
-Print int_type.
 Lemma Here' : forall {U} A (Γ : list U) T,  Lookup 0 (A :: Γ) T.
 Proof. move => > ->. by apply Here. Qed.
 
