@@ -1,18 +1,27 @@
 Require Export typing.
 From Equations Require Import Equations.
 
-Lemma ty_renaming {Δ0 A k} (h : TyWt Δ0 A k):
-  forall {Δ1 ξ},
-    (forall i k, Lookup i Δ0 k -> Lookup (ξ i)  Δ1 k ) ->
-    TyWt Δ1 (ren_Ty ξ A) k.
-Proof.
-  induction h; sauto l:on ctrs:TyWt.
-Defined.
+Definition ren_ok {T} f (Δ0 Δ1 : list T) := forall i k, Lookup i Δ0 k -> Lookup (f i)  Δ1 k.
+
+Equations ren_up {T f k} (Δ0 Δ1 : list T) (hf : ren_ok f Δ0 Δ1) : ren_ok (upRen_Ty_Ty f) (k :: Δ0) (k :: Δ1) :=
+  ren_up Δ0 Δ1 hf _ _ (Here k Δ0) := (Here k Δ1);
+  ren_up Δ0 Δ1 hf _ _ (There n Δ0 k0 k l) := There _ _ _ _ (hf _ _ l).
+
+Equations ty_renaming {Δ0 Δ1 f A k} (h : TyWt Δ0 A k) (hf : ren_ok f Δ0 Δ1) : TyWt Δ1 (ren_Ty f A) k :=
+  ty_renaming (TyT_Var i k l) hf := TyT_Var Δ1 (f i) k (hf _ _ l) ;
+  ty_renaming (TyT_App b a k0 k1 hb ha) hf :=
+    TyT_App Δ1 (ren_Ty f b) (ren_Ty f a) k0 k1 (ty_renaming hb hf) (ty_renaming ha hf) ;
+  ty_renaming (TyT_Fun A B hA hB) hf :=
+    TyT_Fun Δ1 (ren_Ty f A) (ren_Ty f B) (ty_renaming hA hf) (ty_renaming hB hf) ;
+  ty_renaming (TyT_Abs A k0 k1 hA) hf :=
+    TyT_Abs Δ1 _ k0 k1 (ty_renaming hA (ren_up _ _ hf)) ;
+  ty_renaming (TyT_Forall k A hA) hf :=
+    TyT_Forall Δ1 k _ (ty_renaming hA (ren_up _ _ hf)).
 
 Lemma ty_weakening Δ A k k0 (h : TyWt Δ A k) :
   TyWt (k0 :: Δ) (ren_Ty S A) k.
 Proof.
-  sauto lq:on use:ty_renaming.
+  hauto lq:on ctrs:Lookup use:@ty_renaming unfold:ren_ok.
 Qed.
 
 Lemma ty_morphing Δ0 A k (h : TyWt Δ0 A k):
@@ -137,6 +146,33 @@ Proof.
     apply H.
 Qed.
 
+Lemma int_type_ren {Δ Δ' A k} (h : TyWt Δ A k)
+  (ξ : ty_val Δ)
+  (ξ' : ty_val Δ') f
+  (hf : forall i k, Lookup i Δ k -> Lookup (f i) Δ' k)
+  (hξ : forall i k (l : Lookup i Δ k), ξ i k l = ξ' (f i) k (hf i k l)) :
+  int_type h ξ = int_type (ty_renaming h hf) ξ'.
+Proof.
+  move : ξ Δ' ξ' f hf hξ.
+  elim : Δ A k / h.
+  - move => Δ i k l ξ Δ' ξ' f hf hξ.
+    simpl. simp ty_renaming.
+  - move => Δ A k0 k1 h ih ξ Δ' ξ' f hf hl.
+    simpl.
+    simp ty_renaming => /=.
+    extensionality s0.
+    apply ih.
+    move => i k l.
+    dependent elimination l; sfirstorder rew:db:ren_up.
+  - hauto q:on rew:db:ty_renaming.
+  - hauto q:on rew:db:ty_renaming.
+  - move => Δ k A hA ihA ξ Δ' ξ' f hf h.
+    simp ty_renaming =>/=.
+    extensionality s.
+    apply ihA.
+    move => i k0 l.
+    dependent elimination l; sfirstorder rew:db:ren_up.
+Qed.
 
 (* Lemma int_type_ren {Δ Δ' A k} (h : TyWt Δ A k) *)
 (*   (ξ : ty_val Δ') f *)
