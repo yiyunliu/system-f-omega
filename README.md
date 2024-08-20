@@ -10,3 +10,4 @@ The semantic model can be extended to show strong normalization of System F Omeg
 - stdpp 1.10.0
 - coq 8.19.2
 - coq-equations 1.3
+- coq-autosubst-ocaml 1.1
