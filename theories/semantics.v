@@ -163,6 +163,10 @@ Fixpoint int_kind k :=
   | Arr k0 k1 => int_kind k0 -> int_kind k1
   end.
 
+Equations int_type_eq k (A B : int_kind k) : Prop :=
+  int_type_eq Star A B := A <-> B ;
+  int_type_eq (Arr k0 k1) A B := forall (a b : int_kind k0), int_type_eq k0 a b -> int_type_eq k1 (A a) (B b).
+
 Definition ty_val Δ :=
   forall i k (l : Lookup i Δ k), int_kind k.
 
@@ -207,12 +211,13 @@ Lemma lookup_unique  i (Γ : list Ki) A (h0 h1 : Lookup i Γ A) : h0 = h1.
 Qed.
 
 Lemma int_type_irrel {Δ A k} (h h0 : TyWt Δ A k) (ξ : ty_val Δ) :
-  int_type h ξ = int_type h0 ξ.
+  int_type_eq k (int_type h ξ) (int_type h0 ξ).
 Proof.
   move : ξ h0.
   elim : Δ A k /h.
   - intros .
     dependent elimination h0.
+    simpl.
     hauto lq:on use:lookup_unique.
   - intros Δ A k0 k1 t iht ξ h0.
     dependent elimination h0.
