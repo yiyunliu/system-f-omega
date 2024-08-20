@@ -8,15 +8,6 @@ Equations ren_up {T f k} (Δ0 Δ1 : list T) (hf : ren_ok f Δ0 Δ1) : ren_ok (up
   ren_up Δ0 Δ1 hf _ _ (Here k Δ0) := (Here k Δ1);
   ren_up Δ0 Δ1 hf _ _ (There n Δ0 k0 k l) := There _ _ _ _ (hf _ _ l).
 
-(* Lemma lookup_antirenaming {T Δ0 Δ1 f i} {k : T} (h : ren_ok f Δ0 Δ1) (hl : Lookup (f i) Δ1 k) : *)
-(*   Lookup i Δ0 k. *)
-(* Proof. *)
-(*   move : hl. *)
-(*   move E : (f i) => j h0. *)
-(*   move : Δ0 i f h E. *)
-(*   elim : j Δ1  k /h0. *)
-(*   - *)
-
 Definition ren_ok' {T} f (Δ0 Δ1 : list T) := prod (forall i k, Lookup i Δ0 k -> Lookup (f i) Δ1 k) (forall i k, Lookup (f i) Δ1 k -> Lookup i Δ0 k ).
 
 Lemma ren'_up {T f k} (Δ0 Δ1 : list T) (hf : ren_ok' f Δ0 Δ1) : ren_ok' (upRen_Ty_Ty f) (k :: Δ0) (k :: Δ1).
@@ -77,8 +68,8 @@ Proof.
   hauto lq:on ctrs:Lookup use:@ty_renaming unfold:ren_ok.
 Qed.
 
-Lemma ty_morphing Δ0 A k (h : TyWt Δ0 A k):
-  forall Δ1 ρ,
+Lemma ty_morphing {Δ0 A k} (h : TyWt Δ0 A k):
+  forall {Δ1 ρ},
     (forall i k, Lookup i Δ0 k -> TyWt Δ1 (ρ i) k) ->
     TyWt Δ1 (subst_Ty ρ A) k.
 Proof.
@@ -88,7 +79,7 @@ Qed.
 Lemma ty_subst {Δ A B k0 k} (h : TyWt (k :: Δ) A k0) (h0 : TyWt Δ B k) :
   TyWt Δ (subst_Ty (B…) A) k0.
 Proof.
-  sauto lq:on use:ty_morphing.
+  sauto lq:on use:@ty_morphing.
 Qed.
 
 Equations length {A} (a : list A) : nat :=
@@ -229,6 +220,16 @@ Proof.
     move => i k0 l.
     dependent elimination l; sfirstorder rew:db:ren_up.
 Qed.
+
+Lemma int_type_morph {Δ Δ' A k} (h : TyWt Δ A k) :
+  forall ρ
+    (ξ : ty_val Δ)
+    (ξ' : ty_val Δ')
+    (hρ : forall i k, Lookup i Δ k -> TyWt Δ' (ρ i) k),
+    (forall i k (l : Lookup i Δ k), int_type (hρ _ _ l) ξ' = ξ _ _ l) ->
+    int_type h ξ = int_type (ty_morphing h hρ) ξ'.
+Proof.
+
 
 (* Lemma int_type_ren {Δ Δ' A k} (h : TyWt Δ A k) *)
 (*   (ξ : ty_val Δ') f *)
