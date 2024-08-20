@@ -62,25 +62,67 @@ Equations ty_renaming {Δ0 Δ1 f A k} (h : TyWt Δ0 A k) (hf : ren_ok f Δ0 Δ1)
   ty_renaming (TyT_Forall k A hA) hf :=
     TyT_Forall Δ1 k _ (ty_renaming hA (ren_up _ _ hf)).
 
+Equations ren_S {T} (k : T) Δ  : ren_ok S Δ (k :: Δ) :=
+  ren_S k Δ i k0 l := There _ _ _ _ l.
+
 Lemma ty_weakening Δ A k k0 (h : TyWt Δ A k) :
   TyWt (k0 :: Δ) (ren_Ty S A) k.
 Proof.
-  hauto lq:on ctrs:Lookup use:@ty_renaming unfold:ren_ok.
-Qed.
+  eauto using @ty_renaming, @ren_S.
+Defined.
+
+Definition morph_ok ρ Δ0 Δ1  :=
+  forall i k, Lookup i Δ0 k ->
+         TyWt Δ1 (ρ i) k.
+
+Equations morph_ok_ext ρ Δ0 Δ1 (h : morph_ok ρ Δ0 Δ1) A k (h0 : TyWt Δ1 A k) :
+  morph_ok (A .: ρ) (k :: Δ0) Δ1 :=
+  morph_ok_ext ρ Δ0 Δ1 h A k h0 i k (Here k Δ0) := h0 ;
+  morph_ok_ext ρ Δ0 Δ1 h A k h0 _ _ (There Δ0 k0 k l) := h _ _ _.
+
+Definition morph_ren_comp ξ ρ Δ0 Δ1 Δ2 (h : morph_ok ρ Δ0 Δ1) (h0 : ren_ok ξ Δ1 Δ2) :
+  morph_ok (ρ >> ren_Ty ξ) Δ0 Δ2.
+  intros i k l.
+  have -> : (ρ >> ren_Ty ξ) i = ren_Ty ξ (ρ i) by asimpl.
+  eapply ty_renaming.
+  apply h. apply l.
+  apply h0.
+Defined.
+
+Definition morph_id Δ :
+  morph_ok ids Δ Δ.
+  unfold morph_ok.
+  apply TyT_Var.
+Defined.
+
+Definition morph_up ρ Δ0 Δ1 (h : morph_ok ρ Δ0 Δ1) k :
+  morph_ok (up_Ty_Ty ρ) (k :: Δ0) (k :: Δ1).
+  unfold up_Ty_Ty.
+  apply morph_ok_ext.
+  apply morph_ren_comp with (Δ1 := Δ1).
+  apply h.
+  apply ren_S.
+  apply TyT_Var.
+  apply Here.
+Defined.
+
+#[export]Hint Constructors TyWt : wt.
 
 Lemma ty_morphing {Δ0 A k} (h : TyWt Δ0 A k):
   forall {Δ1 ρ},
-    (forall i k, Lookup i Δ0 k -> TyWt Δ1 (ρ i) k) ->
+    morph_ok ρ Δ0 Δ1 ->
     TyWt Δ1 (subst_Ty ρ A) k.
 Proof.
-  induction h; sauto l:on use:ty_weakening.
-Qed.
+  induction h; simpl; eauto using morph_up with wt.
+Defined.
 
 Lemma ty_subst {Δ A B k0 k} (h : TyWt (k :: Δ) A k0) (h0 : TyWt Δ B k) :
   TyWt Δ (subst_Ty (B…) A) k0.
 Proof.
-  sauto lq:on use:@ty_morphing.
-Qed.
+  apply @ty_morphing with (Δ0 := k :: Δ).
+  apply h.
+  eauto using morph_ok_ext, morph_id.
+Defined.
 
 Equations length {A} (a : list A) : nat :=
   length nil := O ;
@@ -190,9 +232,6 @@ Proof.
     apply H.
 Qed.
 
-Equations ren_S {T} (k : T) Δ  : ren_ok S Δ (k :: Δ) :=
-  ren_S k Δ i k0 l := There _ _ _ _ l.
-
 Lemma int_type_ren {Δ Δ' A k} (h : TyWt Δ A k)
   (ξ : ty_val Δ)
   (ξ' : ty_val Δ') f
@@ -226,9 +265,14 @@ Lemma int_type_morph {Δ Δ' A k} (h : TyWt Δ A k) :
     (ξ : ty_val Δ)
     (ξ' : ty_val Δ')
     (hρ : forall i k, Lookup i Δ k -> TyWt Δ' (ρ i) k),
-    (forall i k (l : Lookup i Δ k), int_type (hρ _ _ l) ξ' = ξ _ _ l) ->
+    (forall i k (l : Lookup i Δ k), ξ _ _ l = int_type (hρ _ _ l) ξ') ->
     int_type h ξ = int_type (ty_morphing h hρ) ξ'.
 Proof.
+  move : Δ'.
+  elim : Δ A k /h.
+  - move => //=.
+  - move => Δ A k0 k1 hA ihA Δ' ρ ξ ξ' hρ hρ'.
+    simpl.
 
 
 (* Lemma int_type_ren {Δ Δ' A k} (h : TyWt Δ A k) *)
