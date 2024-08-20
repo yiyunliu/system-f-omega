@@ -5,7 +5,7 @@ Import Ltac2.Constr.Unsafe.
 Require Ltac2.Control.
 Set Default Proof Mode "Classic".
 
-Inductive TyPar : Ty -> Ty -> Prop :=
+Inductive TyPar : Ty -> Ty -> Type :=
 | TP_Var i :
   TyPar (VarTy i) (VarTy i)
 | TP_Abs k A0 A1 a0 a1 :
@@ -53,9 +53,16 @@ where "a ⇒ b" := (Par a b).
 
 Infix "⇒*" := (rtc Par) (at level 70, no associativity).
 
-Definition ICoherent A0 A1 : Prop :=
-  exists B, rtc TyPar A0 B /\ rtc TyPar A1 B.
+Inductive RTC  : Ty -> Ty -> Type :=
+| RTC_Refl A :
+  RTC A A
+| RTC_Step A B C :
+  TyPar A B ->
+  RTC B C ->
+  RTC A C.
 
+Definition ICoherent A0 A1 : Type :=
+  { B : Ty &  prod (RTC A0 B) (RTC A1 B)}.
 
 Lemma par_refl a : a ⇒ a.
 Proof. elim : a; eauto with par. Qed.

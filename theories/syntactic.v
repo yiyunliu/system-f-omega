@@ -124,9 +124,18 @@ Proof.
   eauto using morph_ok_ext, morph_id.
 Defined.
 
-Equations length {A} (a : list A) : nat :=
-  length nil := O ;
-  length (x :: a) := S (length a).
+Lemma ty_preservation Δ A B k :  TyWt Δ A k -> TyPar A B -> TyWt Δ B k.
+Proof.
+  move => + h. move : Δ k.
+  elim : A B /h.
+  - done.
+  - hauto lq:on inv:TyWt ctrs:TyWt use:ty_subst.
+  - hauto lq:on inv:TyWt ctrs:TyWt.
+  - move => k b0 b1 a0 a1 hb ihb ha iha Δ k0.
+    inversion 1; subst.
+    inversion X0; subst.
+    qauto l:on use:ty_subst.
+Qed.
 
 Equations regularity {Δ Γ a A} (h : Wt Δ Γ a A) : TyWt Δ A Star :=
 regularity (a := ?(VarTm i)) (A := ?(A)) (T_Var i A hwf hl) := hwf _ _ hl ;
@@ -138,7 +147,8 @@ regularity (T_Forall k a A ha) :=
   TyT_Forall Δ k A (regularity ha) ;
 regularity (T_Inst k a A B hB ha)
   with regularity ha := { | TyT_Forall k A hA => ty_subst hA hB } ;
-regularity (A := ?(B)) (T_Conv a A B ha hB hAB) := hB.
+(* TODO: file a bug about Coq *)
+regularity (A := ?(B)) (T_Conv a A B C ha hB _ _) := hB.
 
 (* Lemma regularity_irrel {Δ Γ a A} (h h0 : Wt Δ Γ a A ) : *)
 (*   regularity h = regularity h0. *)
@@ -310,6 +320,52 @@ Proof.
       apply hρ'.
 Defined.
 
+Lemma ty_sem_preservation Δ A B k (h0 : TyWt Δ A k) (h1 : TyWt Δ B k) ξ :
+  TyPar A B ->
+  int_type h0 ξ  = int_type h1 ξ.
+  move : B h1 ξ.
+  elim : Δ A k /h0.
+  - inversion 1. subst.
+    dependent elimination h1.
+    hauto lq:on rew:off use:lookup_unique.
+  - move => Δ A k0 k1 hA ihA B hB ξ.
+    dependent elimination hB; try solve [inversion 1].
+    inversion 1; subst.
+    simpl.
+    extensionality s.
+    by apply ihA.
+  - move => Δ B A k0 k1 hB ihB hA ihA T h1 ξ.
+    simpl.
+    inversion 1; subst.
+    + dependent elimination h1.
+      simpl.
+      rename b into B'.
+      rename a into A'.
+      have [*] : Arr k4 k5 = Arr k0 k5 by qauto l:on use:kind_unique, ty_preservation. subst.
+      suff : int_type hB ξ = int_type t0 ξ by hauto l:on use:int_type_irrel.
+      by apply ihB.
+    + rename A into a0.
+      have hp : TyPar (TyAbs k b0) (TyAbs k b1) by hauto lq:on ctrs:TyPar.
+      have hp' : TyWt Δ (TyAbs k b1) (Arr k0 k1)
+        by hauto lq:on rew:off ctrs:TyWt, TyPar inv:TyPar use:ty_preservation.
+      move : ihB (hp); repeat move/[apply].
+      move /(_ hp' ξ).
+      move => ->.
+      dependent elimination hp'.
+      simpl.
+      have h : TyWt Δ a1 k3 by eauto using ty_preservation.
+      have -> : int_type h1 ξ = int_type (ty_subst t h) ξ by hauto l:on use:int_type_irrel.
+      apply int_type_morph.
+      (* TODO: deduplicate *)
+      move => i k l.
+      dependent elimination l.
+      * simp morph_ok_ext V_Cons.
+      * simp morph_ok_ext V_Cons.
+        by simpl.
+  - move => Δ A B hA ihA hB ihB T h1 ξ.
+
+
+
 Definition tm_val Δ ξ Γ :=
   forall i A (l : Lookup i Γ A) (h : TyWt Δ A Star), int_type h ξ.
 
@@ -418,7 +474,6 @@ Proof.
   - move => ξ ρ.
     move /(_ ξ ρ) : IHh.
     simp regularity.
-    rewrite /ICoherent in i.
 Admitted.
 
 Lemma Here' : forall {U} A (Γ : list U) T,  Lookup 0 (A :: Γ) T.

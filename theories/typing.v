@@ -79,9 +79,10 @@ Inductive Wt Δ Γ : Tm -> Ty -> Type :=
   (* ------------------------ *)
   Wt Δ Γ a (subst_Ty (B…) A)
 
-| T_Conv a A B :
+| T_Conv a A B C :
   Wt Δ Γ a A ->
   TyWt Δ B Star ->
-  ICoherent A B ->
+  RTC A C ->
+  RTC B C ->
   (* ------------ *)
   Wt Δ Γ a B.
