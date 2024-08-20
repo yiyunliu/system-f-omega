@@ -135,6 +135,8 @@ Proof.
     inversion 1; subst.
     inversion X0; subst.
     qauto l:on use:ty_subst.
+  - hauto lq:on rew:off inv:TyWt ctrs:TyWt.
+  - hauto lq:on inv:TyWt ctrs:TyWt.
 Qed.
 
 Equations regularity {Δ Γ a A} (h : Wt Δ Γ a A) : TyWt Δ A Star :=
@@ -363,8 +365,17 @@ Lemma ty_sem_preservation Δ A B k (h0 : TyWt Δ A k) (h1 : TyWt Δ B k) ξ :
       * simp morph_ok_ext V_Cons.
         by simpl.
   - move => Δ A B hA ihA hB ihB T h1 ξ.
-
-
+    inversion 1; subst.
+    dependent elimination h1.
+    simpl.
+    hauto l:on.
+  - move => Δ k A hA ihA B hB ξ.
+    inversion 1; subst.
+    dependent elimination hB.
+    simpl.
+    extensionality a.
+    by apply ihA.
+Qed.
 
 Definition tm_val Δ ξ Γ :=
   forall i A (l : Lookup i Γ A) (h : TyWt Δ A Star), int_type h ξ.

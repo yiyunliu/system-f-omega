@@ -22,7 +22,17 @@ Inductive TyPar : Ty -> Ty -> Type :=
   TyPar b0 b1 ->
   TyPar a0 a1 ->
   (* ---------------------------- *)
-  TyPar (TyApp (TyAbs k b0) a0) (subst_Ty (a1…) b1).
+  TyPar (TyApp (TyAbs k b0) a0) (subst_Ty (a1…) b1)
+| TP_Fun b0 b1 a0 a1 :
+  TyPar b0 b1 ->
+  TyPar a0 a1 ->
+  (* -------------------------------- *)
+  TyPar (TyFun b0 a0) (TyFun b1 a1)
+
+| TP_Forall k a0 a1 :
+  TyPar a0 a1 ->
+  (* -------------------------------------- *)
+  TyPar (TyForall k a0) (TyForall k a1).
 
 
 Reserved Infix "⇒" (at level 70, no associativity).
