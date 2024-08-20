@@ -283,7 +283,6 @@ Proof.
       rewrite /morph_ren_comp.
       rewrite /eq_rect_r.
       rewrite -Eqdep.EqdepTheory.eq_rect_eq.
-      Check (hρ n A1 l).
       have <- : int_type (hρ n A1 l) ξ' = int_type (ty_renaming (hρ n A1 l) (ren_S B Δ')) (V_Cons s ξ')
         by hauto l:on use:int_type_ren rew:db:V_Cons, ren_S.
       apply hρ'.
