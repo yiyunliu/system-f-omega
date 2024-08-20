@@ -1,7 +1,6 @@
 Require Export typing.
 From Equations Require Import Equations.
 
-(* Should have been iff? *)
 Definition ren_ok {T} f (Δ0 Δ1 : list T) := forall i k, Lookup i Δ0 k -> Lookup (f i)  Δ1 k.
 
 Equations ren_up {T f k} (Δ0 Δ1 : list T) (hf : ren_ok f Δ0 Δ1) : ren_ok (upRen_Ty_Ty f) (k :: Δ0) (k :: Δ1) :=
@@ -446,4 +445,17 @@ Proof.
     have h1 : TyWt Δ C Star by eauto using ty_preservation_star.
     have -> : int_type t ξ = int_type h1 ξ by hauto l:on use:ty_sem_preservation_star.
     hauto l:on use:ty_sem_preservation_star.
+Qed.
+
+Lemma false_imp a : Wt nil nil a (TyForall Star (VarTy 0)) -> False.
+Proof.
+  move => h.
+  have := int_term h V_Nil T_Nil.
+  move : (regularity h) => u.
+  dependent elimination u.
+  simpl.
+  move /(_ False).
+  dependent elimination t4.
+  simpl.
+  dependent elimination l. simp V_Cons.
 Qed.
