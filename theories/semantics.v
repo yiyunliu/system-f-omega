@@ -82,7 +82,7 @@ Equations morph_ok_ext ρ Δ0 Δ1 (h : morph_ok ρ Δ0 Δ1) A k (h0 : TyWt Δ1 A
 Definition morph_ren_comp ξ ρ Δ0 Δ1 Δ2 (h : morph_ok ρ Δ0 Δ1) (h0 : ren_ok ξ Δ1 Δ2) :
   morph_ok (ρ >> ren_Ty ξ) Δ0 Δ2.
   intros i k l.
-  have -> : (ρ >> ren_Ty ξ) i = ren_Ty ξ (ρ i) by asimpl.
+  change ((ρ >> ren_Ty ξ) i) with (ren_Ty ξ (ρ i)).
   eapply ty_renaming.
   apply h. apply l.
   apply h0.
@@ -195,9 +195,15 @@ Qed.
 Derive EqDec for Ki.
 Set Equations With UIP.
 
-Lemma lookup_unique {U} i (Γ : list U) A (h0 h1 : Lookup i Γ A) : h0 = h1.
+Lemma lookup_unique  i (Γ : list Ki) A (h0 h1 : Lookup i Γ A) : h0 = h1.
   move : h1.
-  induction h0; hauto lq:on dep:on inv:Lookup.
+  induction h0.
+  - move => h1.
+    dependent elimination h1 => //=.
+  - move => h1.
+    dependent elimination h1 => //=.
+    apply f_equal.
+    apply IHh0.
 Qed.
 
 Lemma int_type_irrel {Δ A k} (h h0 : TyWt Δ A k) (ξ : ty_val Δ) :
@@ -280,8 +286,6 @@ Proof.
     + rewrite /morph_up. simp morph_ok_ext.
       simp V_Cons.
       rewrite /morph_ren_comp.
-      rewrite /eq_rect_r.
-      rewrite -Eqdep.EqdepTheory.eq_rect_eq.
       have <- : int_type (hρ n A1 l) ξ' = int_type (ty_renaming (hρ n A1 l) (ren_S B Δ')) (V_Cons s ξ')
         by hauto l:on use:int_type_ren rew:db:V_Cons, ren_S.
       apply hρ'.
@@ -298,8 +302,6 @@ Proof.
     + rewrite /morph_up.
       simp morph_ok_ext.
       rewrite /morph_ren_comp.
-      rewrite /eq_rect_r.
-      rewrite -Eqdep.EqdepTheory.eq_rect_eq.
       simp V_Cons.
       have <- : int_type (hρ n A1 l) ξ' = int_type (ty_renaming (hρ n A1 l) (ren_S B Δ')) (V_Cons s ξ')
         by hauto l:on use:int_type_ren rew:db:V_Cons, ren_S.
