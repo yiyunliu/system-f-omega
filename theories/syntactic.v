@@ -78,7 +78,7 @@ Definition morph_ok ρ Δ0 Δ1  :=
 Equations morph_ok_ext ρ Δ0 Δ1 (h : morph_ok ρ Δ0 Δ1) A k (h0 : TyWt Δ1 A k) :
   morph_ok (A .: ρ) (k :: Δ0) Δ1 :=
   morph_ok_ext ρ Δ0 Δ1 h A k h0 i k (Here k Δ0) := h0 ;
-  morph_ok_ext ρ Δ0 Δ1 h A k h0 _ _ (There Δ0 k0 k l) := h _ _ _.
+  morph_ok_ext ρ Δ0 Δ1 h A k h0 j k0 (There Δ0 k0 k l) := h _ _ l.
 
 Definition morph_ren_comp ξ ρ Δ0 Δ1 Δ2 (h : morph_ok ρ Δ0 Δ1) (h0 : ren_ok ξ Δ1 Δ2) :
   morph_ok (ρ >> ren_Ty ξ) Δ0 Δ2.
@@ -273,16 +273,42 @@ Proof.
   - move => //=.
   - move => Δ A k0 k1 hA ihA Δ' ρ ξ ξ' hρ hρ'.
     simpl.
-
-
-(* Lemma int_type_ren {Δ Δ' A k} (h : TyWt Δ A k) *)
-(*   (ξ : ty_val Δ') f *)
-(*   (hf : forall i k, Lookup i Δ k -> Lookup (f i) Δ' k) : *)
-(*   int_type (ty_renaming h hf) ξ = int_type h (ty_val_ren ξ f hf). *)
-(*   move : Δ' ξ f hf. *)
-(*   elim : Δ A k /h. *)
-(*   - reflexivity. *)
-(* Admitted. *)
+    extensionality s.
+    apply ihA.
+    intros i k l.
+    dependent elimination l.
+    + rewrite /morph_up. simp morph_ok_ext.
+      simpl.
+      by simp V_Cons.
+    + rewrite /morph_up. simp morph_ok_ext.
+      simp V_Cons.
+      rewrite /morph_ren_comp.
+      rewrite /eq_rect_r.
+      rewrite -Eqdep.EqdepTheory.eq_rect_eq.
+      Check (hρ n A1 l).
+      have <- : int_type (hρ n A1 l) ξ' = int_type (ty_renaming (hρ n A1 l) (ren_S B Δ')) (V_Cons s ξ')
+        by hauto l:on use:int_type_ren rew:db:V_Cons, ren_S.
+      apply hρ'.
+  - hauto l:on.
+  - hauto l:on.
+  - move => Δ k A hA ihA Δ' ρ ξ ξ' hρ hρ'.
+    simpl.
+    extensionality s.
+    apply ihA.
+    move => i k0 l.
+    dependent elimination l.
+    + rewrite /morph_up; simp morph_ok_ext => /=.
+      by simp V_Cons.
+    + rewrite /morph_up.
+      simp morph_ok_ext.
+      rewrite /morph_ren_comp.
+      rewrite /eq_rect_r.
+      rewrite -Eqdep.EqdepTheory.eq_rect_eq.
+      simp V_Cons.
+      have <- : int_type (hρ n A1 l) ξ' = int_type (ty_renaming (hρ n A1 l) (ren_S B Δ')) (V_Cons s ξ')
+        by hauto l:on use:int_type_ren rew:db:V_Cons, ren_S.
+      apply hρ'.
+Defined.
 
 Definition tm_val Δ ξ Γ :=
   forall i A (l : Lookup i Γ A) (h : TyWt Δ A Star), int_type h ξ.
@@ -379,8 +405,16 @@ Proof.
     rewrite E.
     simp regularity. simpl.
     move /(_ (int_type t ξ)).
-    (* delayed substitution for int_type *)
-    admit.
+    intros ih.
+    suff : int_type t5 (V_Cons (int_type t ξ) ξ) = int_type (ty_subst t5 t) ξ by congruence.
+    apply int_type_morph.
+    intros i k l.
+    dependent elimination l.
+    + simp V_Cons.
+      by simp morph_ok_ext.
+    + simp morph_ok_ext.
+      simp V_Cons.
+      by simpl.
   - move => ξ ρ.
     move /(_ ξ ρ) : IHh.
     simp regularity.
