@@ -1,4 +1,4 @@
-Require Export par.
+Require Import par.
 
 Definition TyBasis := list Ki.
 
