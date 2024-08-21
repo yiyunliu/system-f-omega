@@ -5,6 +5,466 @@ Require Import Setoid Morphisms Relation_Definitions.
 
 Module Core.
 
+Inductive CSort : Type :=
+  | CStar : CSort
+  | CKind : CSort.
+
+Lemma congr_CStar : CStar = CStar.
+Proof.
+exact (eq_refl).
+Qed.
+
+Lemma congr_CKind : CKind = CKind.
+Proof.
+exact (eq_refl).
+Qed.
+
+Inductive CTm : Type :=
+  | VarCTm : nat -> CTm
+  | CTmAbs : CTm -> CTm
+  | CTmApp : CTm -> CTm -> CTm
+  | CTmForall : CTm -> CTm -> CTm
+  | CTmSort : CSort -> CTm.
+
+Lemma congr_CTmAbs {s0 : CTm} {t0 : CTm} (H0 : s0 = t0) :
+  CTmAbs s0 = CTmAbs t0.
+Proof.
+exact (eq_trans eq_refl (ap (fun x => CTmAbs x) H0)).
+Qed.
+
+Lemma congr_CTmApp {s0 : CTm} {s1 : CTm} {t0 : CTm} {t1 : CTm} (H0 : s0 = t0)
+  (H1 : s1 = t1) : CTmApp s0 s1 = CTmApp t0 t1.
+Proof.
+exact (eq_trans (eq_trans eq_refl (ap (fun x => CTmApp x s1) H0))
+         (ap (fun x => CTmApp t0 x) H1)).
+Qed.
+
+Lemma congr_CTmForall {s0 : CTm} {s1 : CTm} {t0 : CTm} {t1 : CTm}
+  (H0 : s0 = t0) (H1 : s1 = t1) : CTmForall s0 s1 = CTmForall t0 t1.
+Proof.
+exact (eq_trans (eq_trans eq_refl (ap (fun x => CTmForall x s1) H0))
+         (ap (fun x => CTmForall t0 x) H1)).
+Qed.
+
+Lemma congr_CTmSort {s0 : CSort} {t0 : CSort} (H0 : s0 = t0) :
+  CTmSort s0 = CTmSort t0.
+Proof.
+exact (eq_trans eq_refl (ap (fun x => CTmSort x) H0)).
+Qed.
+
+Lemma upRen_CTm_CTm (xi : nat -> nat) : nat -> nat.
+Proof.
+exact (up_ren xi).
+Defined.
+
+Fixpoint ren_CTm (xi_CTm : nat -> nat) (s : CTm) {struct s} : CTm :=
+  match s with
+  | VarCTm s0 => VarCTm (xi_CTm s0)
+  | CTmAbs s0 => CTmAbs (ren_CTm (upRen_CTm_CTm xi_CTm) s0)
+  | CTmApp s0 s1 => CTmApp (ren_CTm xi_CTm s0) (ren_CTm xi_CTm s1)
+  | CTmForall s0 s1 =>
+      CTmForall (ren_CTm xi_CTm s0) (ren_CTm (upRen_CTm_CTm xi_CTm) s1)
+  | CTmSort s0 => CTmSort s0
+  end.
+
+Lemma up_CTm_CTm (sigma : nat -> CTm) : nat -> CTm.
+Proof.
+exact (scons (VarCTm var_zero) (funcomp (ren_CTm shift) sigma)).
+Defined.
+
+Fixpoint subst_CTm (sigma_CTm : nat -> CTm) (s : CTm) {struct s} : CTm :=
+  match s with
+  | VarCTm s0 => sigma_CTm s0
+  | CTmAbs s0 => CTmAbs (subst_CTm (up_CTm_CTm sigma_CTm) s0)
+  | CTmApp s0 s1 => CTmApp (subst_CTm sigma_CTm s0) (subst_CTm sigma_CTm s1)
+  | CTmForall s0 s1 =>
+      CTmForall (subst_CTm sigma_CTm s0)
+        (subst_CTm (up_CTm_CTm sigma_CTm) s1)
+  | CTmSort s0 => CTmSort s0
+  end.
+
+Lemma upId_CTm_CTm (sigma : nat -> CTm) (Eq : forall x, sigma x = VarCTm x) :
+  forall x, up_CTm_CTm sigma x = VarCTm x.
+Proof.
+exact (fun n =>
+       match n with
+       | S n' => ap (ren_CTm shift) (Eq n')
+       | O => eq_refl
+       end).
+Qed.
+
+Fixpoint idSubst_CTm (sigma_CTm : nat -> CTm)
+(Eq_CTm : forall x, sigma_CTm x = VarCTm x) (s : CTm) {struct s} :
+subst_CTm sigma_CTm s = s :=
+  match s with
+  | VarCTm s0 => Eq_CTm s0
+  | CTmAbs s0 =>
+      congr_CTmAbs
+        (idSubst_CTm (up_CTm_CTm sigma_CTm) (upId_CTm_CTm _ Eq_CTm) s0)
+  | CTmApp s0 s1 =>
+      congr_CTmApp (idSubst_CTm sigma_CTm Eq_CTm s0)
+        (idSubst_CTm sigma_CTm Eq_CTm s1)
+  | CTmForall s0 s1 =>
+      congr_CTmForall (idSubst_CTm sigma_CTm Eq_CTm s0)
+        (idSubst_CTm (up_CTm_CTm sigma_CTm) (upId_CTm_CTm _ Eq_CTm) s1)
+  | CTmSort s0 => congr_CTmSort (eq_refl s0)
+  end.
+
+Lemma upExtRen_CTm_CTm (xi : nat -> nat) (zeta : nat -> nat)
+  (Eq : forall x, xi x = zeta x) :
+  forall x, upRen_CTm_CTm xi x = upRen_CTm_CTm zeta x.
+Proof.
+exact (fun n => match n with
+                | S n' => ap shift (Eq n')
+                | O => eq_refl
+                end).
+Qed.
+
+Fixpoint extRen_CTm (xi_CTm : nat -> nat) (zeta_CTm : nat -> nat)
+(Eq_CTm : forall x, xi_CTm x = zeta_CTm x) (s : CTm) {struct s} :
+ren_CTm xi_CTm s = ren_CTm zeta_CTm s :=
+  match s with
+  | VarCTm s0 => ap (VarCTm) (Eq_CTm s0)
+  | CTmAbs s0 =>
+      congr_CTmAbs
+        (extRen_CTm (upRen_CTm_CTm xi_CTm) (upRen_CTm_CTm zeta_CTm)
+           (upExtRen_CTm_CTm _ _ Eq_CTm) s0)
+  | CTmApp s0 s1 =>
+      congr_CTmApp (extRen_CTm xi_CTm zeta_CTm Eq_CTm s0)
+        (extRen_CTm xi_CTm zeta_CTm Eq_CTm s1)
+  | CTmForall s0 s1 =>
+      congr_CTmForall (extRen_CTm xi_CTm zeta_CTm Eq_CTm s0)
+        (extRen_CTm (upRen_CTm_CTm xi_CTm) (upRen_CTm_CTm zeta_CTm)
+           (upExtRen_CTm_CTm _ _ Eq_CTm) s1)
+  | CTmSort s0 => congr_CTmSort (eq_refl s0)
+  end.
+
+Lemma upExt_CTm_CTm (sigma : nat -> CTm) (tau : nat -> CTm)
+  (Eq : forall x, sigma x = tau x) :
+  forall x, up_CTm_CTm sigma x = up_CTm_CTm tau x.
+Proof.
+exact (fun n =>
+       match n with
+       | S n' => ap (ren_CTm shift) (Eq n')
+       | O => eq_refl
+       end).
+Qed.
+
+Fixpoint ext_CTm (sigma_CTm : nat -> CTm) (tau_CTm : nat -> CTm)
+(Eq_CTm : forall x, sigma_CTm x = tau_CTm x) (s : CTm) {struct s} :
+subst_CTm sigma_CTm s = subst_CTm tau_CTm s :=
+  match s with
+  | VarCTm s0 => Eq_CTm s0
+  | CTmAbs s0 =>
+      congr_CTmAbs
+        (ext_CTm (up_CTm_CTm sigma_CTm) (up_CTm_CTm tau_CTm)
+           (upExt_CTm_CTm _ _ Eq_CTm) s0)
+  | CTmApp s0 s1 =>
+      congr_CTmApp (ext_CTm sigma_CTm tau_CTm Eq_CTm s0)
+        (ext_CTm sigma_CTm tau_CTm Eq_CTm s1)
+  | CTmForall s0 s1 =>
+      congr_CTmForall (ext_CTm sigma_CTm tau_CTm Eq_CTm s0)
+        (ext_CTm (up_CTm_CTm sigma_CTm) (up_CTm_CTm tau_CTm)
+           (upExt_CTm_CTm _ _ Eq_CTm) s1)
+  | CTmSort s0 => congr_CTmSort (eq_refl s0)
+  end.
+
+Lemma up_ren_ren_CTm_CTm (xi : nat -> nat) (zeta : nat -> nat)
+  (rho : nat -> nat) (Eq : forall x, funcomp zeta xi x = rho x) :
+  forall x,
+  funcomp (upRen_CTm_CTm zeta) (upRen_CTm_CTm xi) x = upRen_CTm_CTm rho x.
+Proof.
+exact (up_ren_ren xi zeta rho Eq).
+Qed.
+
+Fixpoint compRenRen_CTm (xi_CTm : nat -> nat) (zeta_CTm : nat -> nat)
+(rho_CTm : nat -> nat)
+(Eq_CTm : forall x, funcomp zeta_CTm xi_CTm x = rho_CTm x) (s : CTm) {struct
+ s} : ren_CTm zeta_CTm (ren_CTm xi_CTm s) = ren_CTm rho_CTm s :=
+  match s with
+  | VarCTm s0 => ap (VarCTm) (Eq_CTm s0)
+  | CTmAbs s0 =>
+      congr_CTmAbs
+        (compRenRen_CTm (upRen_CTm_CTm xi_CTm) (upRen_CTm_CTm zeta_CTm)
+           (upRen_CTm_CTm rho_CTm) (up_ren_ren _ _ _ Eq_CTm) s0)
+  | CTmApp s0 s1 =>
+      congr_CTmApp (compRenRen_CTm xi_CTm zeta_CTm rho_CTm Eq_CTm s0)
+        (compRenRen_CTm xi_CTm zeta_CTm rho_CTm Eq_CTm s1)
+  | CTmForall s0 s1 =>
+      congr_CTmForall (compRenRen_CTm xi_CTm zeta_CTm rho_CTm Eq_CTm s0)
+        (compRenRen_CTm (upRen_CTm_CTm xi_CTm) (upRen_CTm_CTm zeta_CTm)
+           (upRen_CTm_CTm rho_CTm) (up_ren_ren _ _ _ Eq_CTm) s1)
+  | CTmSort s0 => congr_CTmSort (eq_refl s0)
+  end.
+
+Lemma up_ren_subst_CTm_CTm (xi : nat -> nat) (tau : nat -> CTm)
+  (theta : nat -> CTm) (Eq : forall x, funcomp tau xi x = theta x) :
+  forall x,
+  funcomp (up_CTm_CTm tau) (upRen_CTm_CTm xi) x = up_CTm_CTm theta x.
+Proof.
+exact (fun n =>
+       match n with
+       | S n' => ap (ren_CTm shift) (Eq n')
+       | O => eq_refl
+       end).
+Qed.
+
+Fixpoint compRenSubst_CTm (xi_CTm : nat -> nat) (tau_CTm : nat -> CTm)
+(theta_CTm : nat -> CTm)
+(Eq_CTm : forall x, funcomp tau_CTm xi_CTm x = theta_CTm x) (s : CTm) {struct
+ s} : subst_CTm tau_CTm (ren_CTm xi_CTm s) = subst_CTm theta_CTm s :=
+  match s with
+  | VarCTm s0 => Eq_CTm s0
+  | CTmAbs s0 =>
+      congr_CTmAbs
+        (compRenSubst_CTm (upRen_CTm_CTm xi_CTm) (up_CTm_CTm tau_CTm)
+           (up_CTm_CTm theta_CTm) (up_ren_subst_CTm_CTm _ _ _ Eq_CTm) s0)
+  | CTmApp s0 s1 =>
+      congr_CTmApp (compRenSubst_CTm xi_CTm tau_CTm theta_CTm Eq_CTm s0)
+        (compRenSubst_CTm xi_CTm tau_CTm theta_CTm Eq_CTm s1)
+  | CTmForall s0 s1 =>
+      congr_CTmForall (compRenSubst_CTm xi_CTm tau_CTm theta_CTm Eq_CTm s0)
+        (compRenSubst_CTm (upRen_CTm_CTm xi_CTm) (up_CTm_CTm tau_CTm)
+           (up_CTm_CTm theta_CTm) (up_ren_subst_CTm_CTm _ _ _ Eq_CTm) s1)
+  | CTmSort s0 => congr_CTmSort (eq_refl s0)
+  end.
+
+Lemma up_subst_ren_CTm_CTm (sigma : nat -> CTm) (zeta_CTm : nat -> nat)
+  (theta : nat -> CTm)
+  (Eq : forall x, funcomp (ren_CTm zeta_CTm) sigma x = theta x) :
+  forall x,
+  funcomp (ren_CTm (upRen_CTm_CTm zeta_CTm)) (up_CTm_CTm sigma) x =
+  up_CTm_CTm theta x.
+Proof.
+exact (fun n =>
+       match n with
+       | S n' =>
+           eq_trans
+             (compRenRen_CTm shift (upRen_CTm_CTm zeta_CTm)
+                (funcomp shift zeta_CTm) (fun x => eq_refl) (sigma n'))
+             (eq_trans
+                (eq_sym
+                   (compRenRen_CTm zeta_CTm shift (funcomp shift zeta_CTm)
+                      (fun x => eq_refl) (sigma n')))
+                (ap (ren_CTm shift) (Eq n')))
+       | O => eq_refl
+       end).
+Qed.
+
+Fixpoint compSubstRen_CTm (sigma_CTm : nat -> CTm) (zeta_CTm : nat -> nat)
+(theta_CTm : nat -> CTm)
+(Eq_CTm : forall x, funcomp (ren_CTm zeta_CTm) sigma_CTm x = theta_CTm x)
+(s : CTm) {struct s} :
+ren_CTm zeta_CTm (subst_CTm sigma_CTm s) = subst_CTm theta_CTm s :=
+  match s with
+  | VarCTm s0 => Eq_CTm s0
+  | CTmAbs s0 =>
+      congr_CTmAbs
+        (compSubstRen_CTm (up_CTm_CTm sigma_CTm) (upRen_CTm_CTm zeta_CTm)
+           (up_CTm_CTm theta_CTm) (up_subst_ren_CTm_CTm _ _ _ Eq_CTm) s0)
+  | CTmApp s0 s1 =>
+      congr_CTmApp (compSubstRen_CTm sigma_CTm zeta_CTm theta_CTm Eq_CTm s0)
+        (compSubstRen_CTm sigma_CTm zeta_CTm theta_CTm Eq_CTm s1)
+  | CTmForall s0 s1 =>
+      congr_CTmForall
+        (compSubstRen_CTm sigma_CTm zeta_CTm theta_CTm Eq_CTm s0)
+        (compSubstRen_CTm (up_CTm_CTm sigma_CTm) (upRen_CTm_CTm zeta_CTm)
+           (up_CTm_CTm theta_CTm) (up_subst_ren_CTm_CTm _ _ _ Eq_CTm) s1)
+  | CTmSort s0 => congr_CTmSort (eq_refl s0)
+  end.
+
+Lemma up_subst_subst_CTm_CTm (sigma : nat -> CTm) (tau_CTm : nat -> CTm)
+  (theta : nat -> CTm)
+  (Eq : forall x, funcomp (subst_CTm tau_CTm) sigma x = theta x) :
+  forall x,
+  funcomp (subst_CTm (up_CTm_CTm tau_CTm)) (up_CTm_CTm sigma) x =
+  up_CTm_CTm theta x.
+Proof.
+exact (fun n =>
+       match n with
+       | S n' =>
+           eq_trans
+             (compRenSubst_CTm shift (up_CTm_CTm tau_CTm)
+                (funcomp (up_CTm_CTm tau_CTm) shift) (fun x => eq_refl)
+                (sigma n'))
+             (eq_trans
+                (eq_sym
+                   (compSubstRen_CTm tau_CTm shift
+                      (funcomp (ren_CTm shift) tau_CTm) (fun x => eq_refl)
+                      (sigma n'))) (ap (ren_CTm shift) (Eq n')))
+       | O => eq_refl
+       end).
+Qed.
+
+Fixpoint compSubstSubst_CTm (sigma_CTm : nat -> CTm) (tau_CTm : nat -> CTm)
+(theta_CTm : nat -> CTm)
+(Eq_CTm : forall x, funcomp (subst_CTm tau_CTm) sigma_CTm x = theta_CTm x)
+(s : CTm) {struct s} :
+subst_CTm tau_CTm (subst_CTm sigma_CTm s) = subst_CTm theta_CTm s :=
+  match s with
+  | VarCTm s0 => Eq_CTm s0
+  | CTmAbs s0 =>
+      congr_CTmAbs
+        (compSubstSubst_CTm (up_CTm_CTm sigma_CTm) (up_CTm_CTm tau_CTm)
+           (up_CTm_CTm theta_CTm) (up_subst_subst_CTm_CTm _ _ _ Eq_CTm) s0)
+  | CTmApp s0 s1 =>
+      congr_CTmApp (compSubstSubst_CTm sigma_CTm tau_CTm theta_CTm Eq_CTm s0)
+        (compSubstSubst_CTm sigma_CTm tau_CTm theta_CTm Eq_CTm s1)
+  | CTmForall s0 s1 =>
+      congr_CTmForall
+        (compSubstSubst_CTm sigma_CTm tau_CTm theta_CTm Eq_CTm s0)
+        (compSubstSubst_CTm (up_CTm_CTm sigma_CTm) (up_CTm_CTm tau_CTm)
+           (up_CTm_CTm theta_CTm) (up_subst_subst_CTm_CTm _ _ _ Eq_CTm) s1)
+  | CTmSort s0 => congr_CTmSort (eq_refl s0)
+  end.
+
+Lemma renRen_CTm (xi_CTm : nat -> nat) (zeta_CTm : nat -> nat) (s : CTm) :
+  ren_CTm zeta_CTm (ren_CTm xi_CTm s) = ren_CTm (funcomp zeta_CTm xi_CTm) s.
+Proof.
+exact (compRenRen_CTm xi_CTm zeta_CTm _ (fun n => eq_refl) s).
+Qed.
+
+Lemma renRen'_CTm_pointwise (xi_CTm : nat -> nat) (zeta_CTm : nat -> nat) :
+  pointwise_relation _ eq (funcomp (ren_CTm zeta_CTm) (ren_CTm xi_CTm))
+    (ren_CTm (funcomp zeta_CTm xi_CTm)).
+Proof.
+exact (fun s => compRenRen_CTm xi_CTm zeta_CTm _ (fun n => eq_refl) s).
+Qed.
+
+Lemma renSubst_CTm (xi_CTm : nat -> nat) (tau_CTm : nat -> CTm) (s : CTm) :
+  subst_CTm tau_CTm (ren_CTm xi_CTm s) = subst_CTm (funcomp tau_CTm xi_CTm) s.
+Proof.
+exact (compRenSubst_CTm xi_CTm tau_CTm _ (fun n => eq_refl) s).
+Qed.
+
+Lemma renSubst_CTm_pointwise (xi_CTm : nat -> nat) (tau_CTm : nat -> CTm) :
+  pointwise_relation _ eq (funcomp (subst_CTm tau_CTm) (ren_CTm xi_CTm))
+    (subst_CTm (funcomp tau_CTm xi_CTm)).
+Proof.
+exact (fun s => compRenSubst_CTm xi_CTm tau_CTm _ (fun n => eq_refl) s).
+Qed.
+
+Lemma substRen_CTm (sigma_CTm : nat -> CTm) (zeta_CTm : nat -> nat) (s : CTm)
+  :
+  ren_CTm zeta_CTm (subst_CTm sigma_CTm s) =
+  subst_CTm (funcomp (ren_CTm zeta_CTm) sigma_CTm) s.
+Proof.
+exact (compSubstRen_CTm sigma_CTm zeta_CTm _ (fun n => eq_refl) s).
+Qed.
+
+Lemma substRen_CTm_pointwise (sigma_CTm : nat -> CTm) (zeta_CTm : nat -> nat)
+  :
+  pointwise_relation _ eq (funcomp (ren_CTm zeta_CTm) (subst_CTm sigma_CTm))
+    (subst_CTm (funcomp (ren_CTm zeta_CTm) sigma_CTm)).
+Proof.
+exact (fun s => compSubstRen_CTm sigma_CTm zeta_CTm _ (fun n => eq_refl) s).
+Qed.
+
+Lemma substSubst_CTm (sigma_CTm : nat -> CTm) (tau_CTm : nat -> CTm)
+  (s : CTm) :
+  subst_CTm tau_CTm (subst_CTm sigma_CTm s) =
+  subst_CTm (funcomp (subst_CTm tau_CTm) sigma_CTm) s.
+Proof.
+exact (compSubstSubst_CTm sigma_CTm tau_CTm _ (fun n => eq_refl) s).
+Qed.
+
+Lemma substSubst_CTm_pointwise (sigma_CTm : nat -> CTm)
+  (tau_CTm : nat -> CTm) :
+  pointwise_relation _ eq (funcomp (subst_CTm tau_CTm) (subst_CTm sigma_CTm))
+    (subst_CTm (funcomp (subst_CTm tau_CTm) sigma_CTm)).
+Proof.
+exact (fun s => compSubstSubst_CTm sigma_CTm tau_CTm _ (fun n => eq_refl) s).
+Qed.
+
+Lemma rinstInst_up_CTm_CTm (xi : nat -> nat) (sigma : nat -> CTm)
+  (Eq : forall x, funcomp (VarCTm) xi x = sigma x) :
+  forall x, funcomp (VarCTm) (upRen_CTm_CTm xi) x = up_CTm_CTm sigma x.
+Proof.
+exact (fun n =>
+       match n with
+       | S n' => ap (ren_CTm shift) (Eq n')
+       | O => eq_refl
+       end).
+Qed.
+
+Fixpoint rinst_inst_CTm (xi_CTm : nat -> nat) (sigma_CTm : nat -> CTm)
+(Eq_CTm : forall x, funcomp (VarCTm) xi_CTm x = sigma_CTm x) (s : CTm)
+{struct s} : ren_CTm xi_CTm s = subst_CTm sigma_CTm s :=
+  match s with
+  | VarCTm s0 => Eq_CTm s0
+  | CTmAbs s0 =>
+      congr_CTmAbs
+        (rinst_inst_CTm (upRen_CTm_CTm xi_CTm) (up_CTm_CTm sigma_CTm)
+           (rinstInst_up_CTm_CTm _ _ Eq_CTm) s0)
+  | CTmApp s0 s1 =>
+      congr_CTmApp (rinst_inst_CTm xi_CTm sigma_CTm Eq_CTm s0)
+        (rinst_inst_CTm xi_CTm sigma_CTm Eq_CTm s1)
+  | CTmForall s0 s1 =>
+      congr_CTmForall (rinst_inst_CTm xi_CTm sigma_CTm Eq_CTm s0)
+        (rinst_inst_CTm (upRen_CTm_CTm xi_CTm) (up_CTm_CTm sigma_CTm)
+           (rinstInst_up_CTm_CTm _ _ Eq_CTm) s1)
+  | CTmSort s0 => congr_CTmSort (eq_refl s0)
+  end.
+
+Lemma rinstInst'_CTm (xi_CTm : nat -> nat) (s : CTm) :
+  ren_CTm xi_CTm s = subst_CTm (funcomp (VarCTm) xi_CTm) s.
+Proof.
+exact (rinst_inst_CTm xi_CTm _ (fun n => eq_refl) s).
+Qed.
+
+Lemma rinstInst'_CTm_pointwise (xi_CTm : nat -> nat) :
+  pointwise_relation _ eq (ren_CTm xi_CTm)
+    (subst_CTm (funcomp (VarCTm) xi_CTm)).
+Proof.
+exact (fun s => rinst_inst_CTm xi_CTm _ (fun n => eq_refl) s).
+Qed.
+
+Lemma instId'_CTm (s : CTm) : subst_CTm (VarCTm) s = s.
+Proof.
+exact (idSubst_CTm (VarCTm) (fun n => eq_refl) s).
+Qed.
+
+Lemma instId'_CTm_pointwise : pointwise_relation _ eq (subst_CTm (VarCTm)) id.
+Proof.
+exact (fun s => idSubst_CTm (VarCTm) (fun n => eq_refl) s).
+Qed.
+
+Lemma rinstId'_CTm (s : CTm) : ren_CTm id s = s.
+Proof.
+exact (eq_ind_r (fun t => t = s) (instId'_CTm s) (rinstInst'_CTm id s)).
+Qed.
+
+Lemma rinstId'_CTm_pointwise : pointwise_relation _ eq (@ren_CTm id) id.
+Proof.
+exact (fun s =>
+       eq_ind_r (fun t => t = s) (instId'_CTm s) (rinstInst'_CTm id s)).
+Qed.
+
+Lemma varL'_CTm (sigma_CTm : nat -> CTm) (x : nat) :
+  subst_CTm sigma_CTm (VarCTm x) = sigma_CTm x.
+Proof.
+exact (eq_refl).
+Qed.
+
+Lemma varL'_CTm_pointwise (sigma_CTm : nat -> CTm) :
+  pointwise_relation _ eq (funcomp (subst_CTm sigma_CTm) (VarCTm)) sigma_CTm.
+Proof.
+exact (fun x => eq_refl).
+Qed.
+
+Lemma varLRen'_CTm (xi_CTm : nat -> nat) (x : nat) :
+  ren_CTm xi_CTm (VarCTm x) = VarCTm (xi_CTm x).
+Proof.
+exact (eq_refl).
+Qed.
+
+Lemma varLRen'_CTm_pointwise (xi_CTm : nat -> nat) :
+  pointwise_relation _ eq (funcomp (ren_CTm xi_CTm) (VarCTm))
+    (funcomp (VarCTm) xi_CTm).
+Proof.
+exact (fun x => eq_refl).
+Qed.
+
 Inductive Ki : Type :=
   | Star : Ki
   | Arr : Ki -> Ki -> Ki.
@@ -847,6 +1307,9 @@ Class Up_Ty X Y :=
 Class Up_Tm X Y :=
     up_Tm : X -> Y.
 
+Class Up_CTm X Y :=
+    up_CTm : X -> Y.
+
 #[global]Instance Subst_Ty : (Subst1 _ _ _) := @subst_Ty.
 
 #[global]Instance Up_Ty_Ty : (Up_Ty _ _) := @up_Ty_Ty.
@@ -861,8 +1324,16 @@ Class Up_Tm X Y :=
 
 #[global]Instance Ren_Tm : (Ren1 _ _ _) := @ren_Tm.
 
+#[global]Instance VarInstance_Tm : (Var _ _) := @VarTm.
+
+#[global]Instance Subst_CTm : (Subst1 _ _ _) := @subst_CTm.
+
+#[global]Instance Up_CTm_CTm : (Up_CTm _ _) := @up_CTm_CTm.
+
+#[global]Instance Ren_CTm : (Ren1 _ _ _) := @ren_CTm.
+
 #[global]
-Instance VarInstance_Tm : (Var _ _) := @VarTm.
+Instance VarInstance_CTm : (Var _ _) := @VarCTm.
 
 Notation "[ sigma_Ty ]" := (subst_Ty sigma_Ty)
 ( at level 1, left associativity, only printing)  : fscope.
@@ -910,6 +1381,30 @@ Notation "x '__Tm'" := (@ids _ _ VarInstance_Tm x)
 ( at level 5, format "x __Tm", only printing)  : subst_scope.
 
 Notation "x '__Tm'" := (VarTm x) ( at level 5, format "x __Tm")  :
+subst_scope.
+
+Notation "[ sigma_CTm ]" := (subst_CTm sigma_CTm)
+( at level 1, left associativity, only printing)  : fscope.
+
+Notation "s [ sigma_CTm ]" := (subst_CTm sigma_CTm s)
+( at level 7, left associativity, only printing)  : subst_scope.
+
+Notation "↑__CTm" := up_CTm (only printing)  : subst_scope.
+
+Notation "↑__CTm" := up_CTm_CTm (only printing)  : subst_scope.
+
+Notation "⟨ xi_CTm ⟩" := (ren_CTm xi_CTm)
+( at level 1, left associativity, only printing)  : fscope.
+
+Notation "s ⟨ xi_CTm ⟩" := (ren_CTm xi_CTm s)
+( at level 7, left associativity, only printing)  : subst_scope.
+
+Notation "'var'" := VarCTm ( at level 1, only printing)  : subst_scope.
+
+Notation "x '__CTm'" := (@ids _ _ VarInstance_CTm x)
+( at level 5, format "x __CTm", only printing)  : subst_scope.
+
+Notation "x '__CTm'" := (VarCTm x) ( at level 5, format "x __CTm")  :
 subst_scope.
 
 #[global]
@@ -982,20 +1477,60 @@ Proof.
 exact (fun f_Tm g_Tm Eq_Tm s => extRen_Tm f_Tm g_Tm Eq_Tm s).
 Qed.
 
+#[global]
+Instance subst_CTm_morphism :
+ (Proper (respectful (pointwise_relation _ eq) (respectful eq eq))
+    (@subst_CTm)).
+Proof.
+exact (fun f_CTm g_CTm Eq_CTm s t Eq_st =>
+       eq_ind s (fun t' => subst_CTm f_CTm s = subst_CTm g_CTm t')
+         (ext_CTm f_CTm g_CTm Eq_CTm s) t Eq_st).
+Qed.
+
+#[global]
+Instance subst_CTm_morphism2 :
+ (Proper (respectful (pointwise_relation _ eq) (pointwise_relation _ eq))
+    (@subst_CTm)).
+Proof.
+exact (fun f_CTm g_CTm Eq_CTm s => ext_CTm f_CTm g_CTm Eq_CTm s).
+Qed.
+
+#[global]
+Instance ren_CTm_morphism :
+ (Proper (respectful (pointwise_relation _ eq) (respectful eq eq)) (@ren_CTm)).
+Proof.
+exact (fun f_CTm g_CTm Eq_CTm s t Eq_st =>
+       eq_ind s (fun t' => ren_CTm f_CTm s = ren_CTm g_CTm t')
+         (extRen_CTm f_CTm g_CTm Eq_CTm s) t Eq_st).
+Qed.
+
+#[global]
+Instance ren_CTm_morphism2 :
+ (Proper (respectful (pointwise_relation _ eq) (pointwise_relation _ eq))
+    (@ren_CTm)).
+Proof.
+exact (fun f_CTm g_CTm Eq_CTm s => extRen_CTm f_CTm g_CTm Eq_CTm s).
+Qed.
+
 Ltac auto_unfold := repeat
-                     unfold VarInstance_Tm, Var, ids, Ren_Tm, Ren1, ren1,
-                      Up_Tm_Tm, Up_Tm, up_Tm, Subst_Tm, Subst1, subst1,
-                      VarInstance_Ty, Var, ids, Ren_Ty, Ren1, ren1, Up_Ty_Ty,
-                      Up_Ty, up_Ty, Subst_Ty, Subst1, subst1.
+                     unfold VarInstance_CTm, Var, ids, Ren_CTm, Ren1, ren1,
+                      Up_CTm_CTm, Up_CTm, up_CTm, Subst_CTm, Subst1, subst1,
+                      VarInstance_Tm, Var, ids, Ren_Tm, Ren1, ren1, Up_Tm_Tm,
+                      Up_Tm, up_Tm, Subst_Tm, Subst1, subst1, VarInstance_Ty,
+                      Var, ids, Ren_Ty, Ren1, ren1, Up_Ty_Ty, Up_Ty, up_Ty,
+                      Subst_Ty, Subst1, subst1.
 
 Tactic Notation "auto_unfold" "in" "*" := repeat
-                                           unfold VarInstance_Tm, Var, ids,
-                                            Ren_Tm, Ren1, ren1, Up_Tm_Tm,
-                                            Up_Tm, up_Tm, Subst_Tm, Subst1,
-                                            subst1, VarInstance_Ty, Var, ids,
-                                            Ren_Ty, Ren1, ren1, Up_Ty_Ty,
-                                            Up_Ty, up_Ty, Subst_Ty, Subst1,
-                                            subst1 in *.
+                                           unfold VarInstance_CTm, Var, ids,
+                                            Ren_CTm, Ren1, ren1, Up_CTm_CTm,
+                                            Up_CTm, up_CTm, Subst_CTm,
+                                            Subst1, subst1, VarInstance_Tm,
+                                            Var, ids, Ren_Tm, Ren1, ren1,
+                                            Up_Tm_Tm, Up_Tm, up_Tm, Subst_Tm,
+                                            Subst1, subst1, VarInstance_Ty,
+                                            Var, ids, Ren_Ty, Ren1, ren1,
+                                            Up_Ty_Ty, Up_Ty, up_Ty, Subst_Ty,
+                                            Subst1, subst1 in *.
 
 Ltac asimpl' := repeat (first
                  [ progress setoid_rewrite substSubst_Ty_pointwise
@@ -1014,6 +1549,14 @@ Ltac asimpl' := repeat (first
                  | progress setoid_rewrite renSubst_Tm
                  | progress setoid_rewrite renRen'_Tm_pointwise
                  | progress setoid_rewrite renRen_Tm
+                 | progress setoid_rewrite substSubst_CTm_pointwise
+                 | progress setoid_rewrite substSubst_CTm
+                 | progress setoid_rewrite substRen_CTm_pointwise
+                 | progress setoid_rewrite substRen_CTm
+                 | progress setoid_rewrite renSubst_CTm_pointwise
+                 | progress setoid_rewrite renSubst_CTm
+                 | progress setoid_rewrite renRen'_CTm_pointwise
+                 | progress setoid_rewrite renRen_CTm
                  | progress setoid_rewrite varLRen'_Ty_pointwise
                  | progress setoid_rewrite varLRen'_Ty
                  | progress setoid_rewrite varL'_Ty_pointwise
@@ -1030,19 +1573,29 @@ Ltac asimpl' := repeat (first
                  | progress setoid_rewrite rinstId'_Tm
                  | progress setoid_rewrite instId'_Tm_pointwise
                  | progress setoid_rewrite instId'_Tm
+                 | progress setoid_rewrite varLRen'_CTm_pointwise
+                 | progress setoid_rewrite varLRen'_CTm
+                 | progress setoid_rewrite varL'_CTm_pointwise
+                 | progress setoid_rewrite varL'_CTm
+                 | progress setoid_rewrite rinstId'_CTm_pointwise
+                 | progress setoid_rewrite rinstId'_CTm
+                 | progress setoid_rewrite instId'_CTm_pointwise
+                 | progress setoid_rewrite instId'_CTm
                  | progress
                     unfold up_Ty_Ty, upRen_Ty_Ty, up_Tm_Tm, upRen_Tm_Tm,
-                     up_ren
-                 | progress cbn[subst_Ty ren_Ty subst_Tm ren_Tm]
+                     up_CTm_CTm, upRen_CTm_CTm, up_ren
+                 | progress
+                    cbn[subst_Ty ren_Ty subst_Tm ren_Tm subst_CTm ren_CTm]
                  | progress fsimpl ]).
 
 Ltac asimpl := check_no_evars;
                 repeat
-                 unfold VarInstance_Tm, Var, ids, Ren_Tm, Ren1, ren1,
-                  Up_Tm_Tm, Up_Tm, up_Tm, Subst_Tm, Subst1, subst1,
-                  VarInstance_Ty, Var, ids, Ren_Ty, Ren1, ren1, Up_Ty_Ty,
-                  Up_Ty, up_Ty, Subst_Ty, Subst1, subst1 in *; asimpl';
-                minimize.
+                 unfold VarInstance_CTm, Var, ids, Ren_CTm, Ren1, ren1,
+                  Up_CTm_CTm, Up_CTm, up_CTm, Subst_CTm, Subst1, subst1,
+                  VarInstance_Tm, Var, ids, Ren_Tm, Ren1, ren1, Up_Tm_Tm,
+                  Up_Tm, up_Tm, Subst_Tm, Subst1, subst1, VarInstance_Ty,
+                  Var, ids, Ren_Ty, Ren1, ren1, Up_Ty_Ty, Up_Ty, up_Ty,
+                  Subst_Ty, Subst1, subst1 in *; asimpl'; minimize.
 
 Tactic Notation "asimpl" "in" hyp(J) := revert J; asimpl; intros J.
 
@@ -1051,12 +1604,16 @@ Tactic Notation "auto_case" := auto_case ltac:(asimpl; cbn; eauto).
 Ltac substify := auto_unfold; try setoid_rewrite rinstInst'_Ty_pointwise;
                   try setoid_rewrite rinstInst'_Ty;
                   try setoid_rewrite rinstInst'_Tm_pointwise;
-                  try setoid_rewrite rinstInst'_Tm.
+                  try setoid_rewrite rinstInst'_Tm;
+                  try setoid_rewrite rinstInst'_CTm_pointwise;
+                  try setoid_rewrite rinstInst'_CTm.
 
 Ltac renamify := auto_unfold; try setoid_rewrite_left rinstInst'_Ty_pointwise;
                   try setoid_rewrite_left rinstInst'_Ty;
                   try setoid_rewrite_left rinstInst'_Tm_pointwise;
-                  try setoid_rewrite_left rinstInst'_Tm.
+                  try setoid_rewrite_left rinstInst'_Tm;
+                  try setoid_rewrite_left rinstInst'_CTm_pointwise;
+                  try setoid_rewrite_left rinstInst'_CTm.
 
 End Core.
 
@@ -1071,6 +1628,10 @@ Import Core.
 #[global]Hint Opaque subst_Tm: rewrite.
 
 #[global]Hint Opaque ren_Tm: rewrite.
+
+#[global]Hint Opaque subst_CTm: rewrite.
+
+#[global]Hint Opaque ren_CTm: rewrite.
 
 End Extra.
 
