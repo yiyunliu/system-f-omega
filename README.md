@@ -1,5 +1,5 @@
 # A proof-irrelevant model for System F Omega in Coq
-A simple proof-irrelevant model for System F Omega (PTS with type-level computation and polymorphism, but without dependent types) mechanized in Coq. 
+A simple proof-irrelevant model for curry-style System F Omega (PTS with type-level computation and polymorphism, but without dependent types) mechanized in Coq.
 
 To model impredicativity, types are mapped to Coq's impredicative `Prop`. The proof itself is intuitive on paper, but the shallow embedding from type-level lambdas to Coq functions requires writing and reasoning about dependently typed programs, something that I believe is impossible to avoid, unlike semantic models for predicative systems.
 
