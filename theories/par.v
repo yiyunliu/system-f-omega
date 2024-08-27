@@ -332,27 +332,54 @@ Record CR (S : Tm -> Prop) : Prop := CR_intro
 
 Hint Constructors CR SN SNRed SNe : rdb.
 
-Lemma snred_ext (a : Tm) i :
-  SN (TmApp a (VarTm i)) ->
-  SN a.
-Proof.
-  move E : (TmApp a (VarTm i)) => v h.
-  move : i a E.
-  elim : v /h => //=.
-  - hauto lq:on inv:SNe use:S_Neu.
-  - move => a0 a1 ha0 ha1 ih.
-    move => i a ?. subst.
-    inversion ha0; subst.
-    hauto lq:on inv:SN, SNe ctrs:SN.
-    apply S_Abs.
-    admit.
-Admitted.
+Module red_props.
 
-Lemma CR_Prod s0 s1 : CR s0 -> CR s1 -> CR (fun b => forall a, s0 a -> s1 (TmApp b a)).
-Proof.
-  move=>*.
-  apply CR_intro.
-  - hauto q:on use:CR1, CR3, S_Var, snred_ext.
-  - hauto lq:on ctrs:SNRed inv:CR.
-  - hauto lq:on ctrs:SNe inv:CR.
-Qed.
+  Lemma antirenaming :
+          (forall a, SN a -> forall ξ b, a = ren_Tm ξ b -> SN b) /\
+          (forall a, SNe a -> forall ξ b, a = ren_Tm ξ b -> SNe b) /\
+            (forall a b, SNRed a b -> forall ξ a', a = ren_Tm ξ a' -> exists b', b = ren_Tm ξ b' /\ SNRed a' b').
+  Proof.
+    apply SN_multind.
+    - qauto use:S_Neu.
+    - move => a h ih ξ []//.
+      qauto use:S_Abs.
+    - qauto db:rdb.
+    - qauto use:S_Var inv:Tm.
+    - move => a b ha iha hb ihb ξ []//.
+      qauto db:rdb.
+    - move => a0 a1 b ha iha ξ []// a' b' [*]. subst.
+      specialize iha with (1 := eq_refl).
+      move : iha => [b0 [? ?]]. subst.
+      exists (TmApp b0 b'). split => //=.
+      by apply S_AppL.
+    - move => a b h ih ξ []// []// a' b' [*]. subst.
+      specialize ih with (1 := eq_refl).
+      exists (subst_Tm (b'…) a').
+      split. by asimpl.
+      by apply S_AppAbs.
+  Qed.
+
+  Lemma ext (a : Tm) i :
+    SN (TmApp a (VarTm i)) ->
+    SN a.
+  Proof.
+    move E : (TmApp a (VarTm i)) => v h.
+    move : i a E.
+    elim : v /h => //=.
+    - hauto lq:on inv:SNe use:S_Neu.
+    - move => a0 a1 ha0 ha1 ih.
+      move => i a ?. subst.
+      inversion ha0; subst.
+      hauto lq:on inv:SN, SNe ctrs:SN.
+      apply S_Abs.
+      admit.
+  Admitted.
+
+  Lemma CR_Prod s0 s1 : CR s0 -> CR s1 -> CR (fun b => forall a, s0 a -> s1 (TmApp b a)).
+  Proof.
+    move=>*.
+    apply CR_intro.
+    - hauto q:on use:CR1, CR3, S_Var, ext.
+    - hauto lq:on ctrs:SNRed inv:CR.
+    - hauto lq:on ctrs:SNe inv:CR.
+  Qed.
