@@ -304,61 +304,55 @@ Qed.
 Lemma C_App : ltac2:(gen_cong P_App Coherent).
 Proof. hauto lq:on use:PS_App unfold:Coherent. Qed.
 
-
-(* Lemma pars_pi_inv A B U : *)
-(*   Pi A B ⇒* U -> exists A0 B0, U = Pi A0 B0 /\ A ⇒* A0 /\ B ⇒* B0. *)
-(* Proof. *)
-(*   move E : (Pi A B) => T h. *)
-(*   move : A B E. *)
-(*   elim : T U/h. *)
-(*   hauto lq:on ctrs:rtc, Par. *)
-(*   hauto lq:on rew:off inv:Par ctrs:Par,rtc. *)
-(* Qed. *)
-
-(* Lemma pars_sort_inv s U : *)
-(*   ISort s ⇒* U -> U = ISort s. *)
-(* Proof. *)
-(*   move E : (ISort s) => T h. *)
-(*   move : s E. *)
-(*   elim : T U/h. *)
-(*   hauto lq:on ctrs:rtc, Par. *)
-(*   hauto lq:on rew:off inv:Par ctrs:Par,rtc. *)
-(* Qed. *)
-
-(* Lemma coherent_pi_inj A0 A1 B0 B1 : *)
-(*   Pi A0 B0 ⇔ Pi A1 B1 -> *)
-(*   A0 ⇔ A1 /\ *)
-(*   B0 ⇔ B1. *)
-(* Proof. hauto l:on inv:eq rew:off  ctrs:rtc use:pars_pi_inv unfold:Coherent. Qed. *)
-
-(* Lemma coherent_sort_inj s0 s1 : *)
-(*   ISort s0 ⇔ ISort s1 -> *)
-(*   s0 = s1. *)
-(* Proof. *)
-(*   move => [u][/pars_sort_inv h0 /pars_sort_inv h1]. *)
-(*   congruence. *)
-(* Qed. *)
-
 (* Based on https://poplmark-reloaded.github.io/coq/well-scoped/PR.sn_defs.html *)
-(* Inductive SN : Term -> Prop := *)
-(* | S_Neu a : SNe a -> SN a *)
-(* | S_Abs A a : SN A -> SN a -> SN (Abs A a) *)
-(* | S_Sort s : SN (ISort s) *)
-(* | S_Pi A B : SN A -> SN B -> SN (Pi A B) *)
-(* | S_Red a0 a1 : SNRed a0 a1 -> SN a1 -> SN a0 *)
-(* with SNe : Term -> Prop := *)
-(* | S_Var i : SNe (VarTm i) *)
-(* | S_App a b : SNe a -> SN b -> SNe (App a b) *)
-(* with SNRed : Term -> Term -> Prop := *)
-(* | S_AppL a0 a1 b : *)
-(*   SNRed a0 a1 -> *)
-(*   SNRed (App a0 b) (App a1 b) *)
-(* | S_AppAbs A a b : *)
-(*   SN A -> *)
-(*   SN b -> *)
-(*   SNRed (App (Abs A a) b) a[b…]. *)
+Inductive SN : Tm -> Prop :=
+| S_Neu a : SNe a -> SN a
+| S_Abs a : SN a -> SN (TmAbs a)
+| S_Red a0 a1 : SNRed a0 a1 -> SN a1 -> SN a0
+with SNe : Tm -> Prop :=
+| S_Var i : SNe (VarTm i)
+| S_App a b : SNe a -> SN b -> SNe (TmApp a b)
+with SNRed : Tm -> Tm -> Prop :=
+| S_AppL a0 a1 b :
+  SNRed a0 a1 ->
+  SNRed (TmApp a0 b) (TmApp a1 b)
+| S_AppAbs a b :
+  SN b ->
+  SNRed (TmApp (TmAbs a) b) (subst_Tm (b…) a).
 
-(* Scheme SN_ind_2 := Minimality for SN Sort Prop *)
-(*                    with SNe_ind_2 := Minimality for SNe Sort Prop *)
-(*                     with redSN_ind_2 := Minimality for SNRed Sort Prop. *)
-(* Combined Scheme SN_multind from SN_ind_2, SNe_ind_2, redSN_ind_2. *)
+Scheme SN_ind_2 := Minimality for SN Sort Prop
+                   with SNe_ind_2 := Minimality for SNe Sort Prop
+                    with redSN_ind_2 := Minimality for SNRed Sort Prop.
+Combined Scheme SN_multind from SN_ind_2, SNe_ind_2, redSN_ind_2.
+
+Record CR (S : Tm -> Prop) : Prop := CR_intro
+  { CR1 : forall a, S a -> SN a
+  ; CR2 : forall a b, SNRed a b -> S b -> S a
+  ; CR3 : forall a, SNe a -> S a }.
+
+Hint Constructors CR SN SNRed SNe : rdb.
+
+Lemma snred_ext (a : Tm) i :
+  SN (TmApp a (VarTm i)) ->
+  SN a.
+Proof.
+  move E : (TmApp a (VarTm i)) => v h.
+  move : i a E.
+  elim : v /h => //=.
+  - hauto lq:on inv:SNe use:S_Neu.
+  - move => a0 a1 ha0 ha1 ih.
+    move => i a ?. subst.
+    inversion ha0; subst.
+    hauto lq:on inv:SN, SNe ctrs:SN.
+    apply S_Abs.
+    admit.
+Admitted.
+
+Lemma CR_Prod s0 s1 : CR s0 -> CR s1 -> CR (fun b => forall a, s0 a -> s1 (TmApp b a)).
+Proof.
+  move=>*.
+  apply CR_intro.
+  - hauto q:on use:CR1, CR3, S_Var, snred_ext.
+  - hauto lq:on ctrs:SNRed inv:CR.
+  - hauto lq:on ctrs:SNe inv:CR.
+Qed.

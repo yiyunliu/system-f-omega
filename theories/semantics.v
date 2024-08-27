@@ -154,12 +154,11 @@ regularity (T_Forall k a A ha) :=
   TyT_Forall Δ k A (regularity ha) ;
 regularity (T_Inst k a A B hB ha)
   with regularity ha := { | TyT_Forall k A hA => ty_subst hA hB } ;
-(* TODO: file a bug about Coq *)
 regularity (A := ?(B)) (T_Conv a A B C ha hB _ _) := hB.
 
 Fixpoint int_kind k :=
   match k with
-  | Star => Prop
+  | Star => Tm -> Prop
   | Arr k0 k1 => int_kind k0 -> int_kind k1
   end.
 
@@ -177,15 +176,20 @@ Definition ty_val_ren {Δ Δ'}
   (hf : forall i k, Lookup i Δ k -> Lookup (f i) Δ' k) : ty_val Δ :=
   fun i k l => ξ (f i) k (hf _ _ l).
 
-Lemma int_type {Δ A k} (h : TyWt Δ A k) (ξ : ty_val Δ) : int_kind k.
-Proof.
-  induction h.
-  - apply : ξ l.
-  - intros s0; apply : IHh (V_Cons s0 ξ).
-  - apply : IHh1 ξ (IHh2 ξ).
-  - apply : (IHh1 ξ -> IHh2 ξ).
-  - apply : (forall (a : int_kind k), IHh (V_Cons a ξ)).
-Defined.
+Definition SFun SA SB b : Prop := forall a, SA a -> SB (TmApp b a).
+
+Equations int_type {Δ A k} (h : TyWt Δ A k) (ξ : ty_val Δ) : int_kind k :=
+  int_type (TyT_Var i k l) ξ := ξ i k l ;
+  int_type (TyT_Abs A k0 k1 hA) ξ := fun s0 => int_type hA (V_Cons s0 ξ);
+  int_type (TyT_App b a k0 k1 hb ha) ξ := int_type hb ξ (int_type ha ξ);
+  int_type (TyT_Fun A B hA hB) ξ :=
+    fun b => forall a, (int_type hA ξ) a -> (int_type hB ξ) (TmApp b a);
+  int_type (TyT_Forall k A hA) ξ :=
+    fun b => forall s, int_type hA (V_Cons s ξ) b.
+
+Equations adequateP (k : Ki) (s : int_kind k) : Prop :=
+  adequateP Star s := CR s ;
+  adequateP (Arr k0 k1) s := forall b, adequateP k0 b -> adequateP k1 (s b).
 
 Lemma kind_unique Δ A k (h0 : TyWt Δ A k ) : forall k0, TyWt Δ A k0 -> k = k0.
 Proof.
