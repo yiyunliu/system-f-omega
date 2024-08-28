@@ -178,6 +178,13 @@ Definition ty_val_ren {Δ Δ'}
 
 Definition SFun SA SB b : Prop := forall a, SA a -> SB (TmApp b a).
 
+Equations adequateP (k : Ki) (s : int_kind k) : Prop :=
+  adequateP Star s := CR s ;
+  adequateP (Arr k0 k1) s := forall b, adequateP k0 b -> adequateP k1 (s b).
+
+Definition ty_val_ok {Δ} (ξ : ty_val Δ) {i k} (l : Lookup i Δ k) :=
+  adequateP k (ξ i k l).
+
 Equations int_type {Δ A k} (h : TyWt Δ A k) (ξ : ty_val Δ) : int_kind k :=
   int_type (TyT_Var i k l) ξ := ξ i k l ;
   int_type (TyT_Abs A k0 k1 hA) ξ := fun s0 => int_type hA (V_Cons s0 ξ);
@@ -185,11 +192,7 @@ Equations int_type {Δ A k} (h : TyWt Δ A k) (ξ : ty_val Δ) : int_kind k :=
   int_type (TyT_Fun A B hA hB) ξ :=
     fun b => forall a, (int_type hA ξ) a -> (int_type hB ξ) (TmApp b a);
   int_type (TyT_Forall k A hA) ξ :=
-    fun b => forall s, int_type hA (V_Cons s ξ) b.
-
-Equations adequateP (k : Ki) (s : int_kind k) : Prop :=
-  adequateP Star s := CR s ;
-  adequateP (Arr k0 k1) s := forall b, adequateP k0 b -> adequateP k1 (s b).
+    fun b => forall s, adequateP _ s -> int_type hA (V_Cons s ξ) b.
 
 Lemma kind_unique Δ A k (h0 : TyWt Δ A k ) : forall k0, TyWt Δ A k0 -> k = k0.
 Proof.
@@ -217,26 +220,32 @@ Proof.
   elim : Δ A k /h.
   - intros .
     dependent elimination h0.
-    hauto lq:on use:lookup_unique.
+    have : l = l0 by eauto using lookup_unique.
+    congruence.
   - intros Δ A k0 k1 t iht ξ h0.
     dependent elimination h0.
-    simpl.
+    simp int_type.
     extensionality x.
     apply iht.
   - intros.
     dependent elimination h0.
-    simpl.
+    simp int_type.
     have ? : k4 = k0 by eauto using kind_unique. subst.
     scongruence.
   - intros.
     dependent elimination h0.
-    simpl.
-    scongruence.
+    simp int_type.
+    have [-> ->] : int_type t ξ = int_type t4 ξ /\ int_type t0 ξ = int_type t5 ξ
+      by hauto l:on.
+    done.
   - intros.
     dependent elimination h0.
     simpl.
-    extensionality h.
-    apply H.
+    simp int_type.
+    extensionality b.
+    have ? : forall s, int_type t (V_Cons s ξ) = int_type t5 (V_Cons s ξ) by scongruence.
+    apply propositional_extensionality.
+    qauto l:on.
 Qed.
 
 Lemma int_type_ren {Δ Δ' A k} (h : TyWt Δ A k)
@@ -248,23 +257,27 @@ Lemma int_type_ren {Δ Δ' A k} (h : TyWt Δ A k)
 Proof.
   move : ξ Δ' ξ' f hf hξ.
   elim : Δ A k / h.
-  - move => Δ i k l ξ Δ' ξ' f hf hξ.
-    simpl. simp ty_renaming.
+  - move => *. simp ty_renaming int_type.
   - move => Δ A k0 k1 h ih ξ Δ' ξ' f hf hl.
-    simpl.
-    simp ty_renaming => /=.
-    extensionality s0.
+    simp int_type ty_renaming => /=.
+    extensionality s0. simp int_type.
     apply ih.
     move => i k l.
     dependent elimination l; sfirstorder rew:db:ren_up.
-  - hauto q:on rew:db:ty_renaming.
-  - hauto q:on rew:db:ty_renaming.
+  - hauto q:on rew:db:ty_renaming, int_type.
+  - hauto q:on rew:db:ty_renaming, int_type.
   - move => Δ k A hA ihA ξ Δ' ξ' f hf h.
-    simp ty_renaming =>/=.
+    simp ty_renaming int_type.
+    rewrite int_type_equation_5.
+    have : forall s, int_type hA (V_Cons s ξ) = int_type (ty_renaming hA (ren_up Δ Δ' hf)) (V_Cons s ξ') by
+        move => s; apply ihA => i k0 l;
+                              dependent elimination l; sfirstorder rew:db:ren_up.
+    clear => h.
     extensionality s.
-    apply ihA.
-    move => i k0 l.
-    dependent elimination l; sfirstorder rew:db:ren_up.
+    apply propositional_extensionality.
+    have : forall P0 P1, (forall s, P0 s = P1 s) -> (forall s, (P0 s : Prop)) <-> (forall s, P1 s) by hauto lq:on.
+    apply.
+    hauto lq:on.
 Qed.
 
 Lemma int_type_morph {Δ Δ' A k} (h : TyWt Δ A k) :
@@ -277,9 +290,9 @@ Lemma int_type_morph {Δ Δ' A k} (h : TyWt Δ A k) :
 Proof.
   move : Δ'.
   elim : Δ A k /h.
-  - move => //=.
-  - move => Δ A k0 k1 hA ihA Δ' ρ ξ ξ' hρ hρ'.
-    simpl.
+  - move => *. simp int_type.
+  - move => Δ A k0 k1 hA ihA Δ' ρ ξ ξ' hρ hρ' /=.
+    simp int_type.
     extensionality s.
     apply ihA.
     intros i k l.
@@ -293,24 +306,25 @@ Proof.
       have <- : int_type (hρ n A1 l) ξ' = int_type (ty_renaming (hρ n A1 l) (ren_S B Δ')) (V_Cons s ξ')
         by hauto l:on use:int_type_ren rew:db:V_Cons, ren_S.
       apply hρ'.
-  - hauto l:on.
-  - hauto l:on.
+  - hauto l:on rew:db:int_type.
+  - hauto l:on rew:db:int_type.
   - move => Δ k A hA ihA Δ' ρ ξ ξ' hρ hρ'.
     simpl.
-    extensionality s.
-    apply ihA.
-    move => i k0 l.
-    dependent elimination l.
-    + rewrite /morph_up; simp morph_ok_ext => /=.
-      by simp V_Cons.
-    + rewrite /morph_up.
-      simp morph_ok_ext.
-      rewrite /morph_ren_comp.
-      simp V_Cons.
-      have <- : int_type (hρ n A1 l) ξ' = int_type (ty_renaming (hρ n A1 l) (ren_S B Δ')) (V_Cons s ξ')
-        by hauto l:on use:int_type_ren rew:db:V_Cons, ren_S.
+    simp int_type. extensionality b.
+    have : forall s, int_type hA (V_Cons s ξ) = int_type (ty_morphing hA (morph_up ρ Δ Δ' hρ k)) (V_Cons s ξ').
+    {
+      move => s. apply ihA.
+      move => i k0 l. dependent elimination l. reflexivity.
+      simp V_Cons. rewrite /morph_up /morph_ren_comp.
+      simp morph_ok_ext int_type V_Cons ty_renaming.
+      have <- : int_type (hρ n A1 l) ξ' = int_type (ty_renaming (hρ n A1 l) (ren_S B Δ')) (V_Cons s ξ') by
+        hauto l:on use:int_type_ren rew:db:V_Cons, ren_S.
       apply hρ'.
-Defined.
+    }
+    clear => h.
+    apply propositional_extensionality.
+    qauto l:on.
+Qed.
 
 Lemma ty_sem_preservation Δ A B k (h0 : TyWt Δ A k) (h1 : TyWt Δ B k) ξ :
   TyPar A B ->
@@ -325,7 +339,7 @@ Lemma ty_sem_preservation Δ A B k (h0 : TyWt Δ A k) (h1 : TyWt Δ B k) ξ :
     inversion 1; subst.
     simpl.
     extensionality s.
-    by apply ihA.
+    simp int_type.
   - move => Δ B A k0 k1 hB ihB hA ihA T h1 ξ.
     simpl.
     inversion 1; subst.
@@ -334,19 +348,20 @@ Lemma ty_sem_preservation Δ A B k (h0 : TyWt Δ A k) (h1 : TyWt Δ B k) ξ :
       rename b into B'.
       rename a into A'.
       have [*] : Arr k4 k5 = Arr k0 k5 by qauto l:on use:kind_unique, ty_preservation. subst.
-      suff : int_type hB ξ = int_type t0 ξ by hauto l:on use:int_type_irrel.
+      suff : int_type hB ξ = int_type t0 ξ by hauto l:on use:int_type_irrel rew:db:int_type.
       by apply ihB.
     + rename A into a0.
       have hp : TyPar (TyAbs k b0) (TyAbs k b1) by hauto lq:on ctrs:TyPar.
       have hp' : TyWt Δ (TyAbs k b1) (Arr k0 k1)
         by hauto lq:on rew:off ctrs:TyWt, TyPar inv:TyPar use:ty_preservation.
       move : ihB (hp); repeat move/[apply].
-      move /(_ hp' ξ).
+      move /(_ hp' ξ). simp int_type.
       move => ->.
       dependent elimination hp'.
       simpl.
       have h : TyWt Δ a1 k3 by eauto using ty_preservation.
       have -> : int_type h1 ξ = int_type (ty_subst t h) ξ by hauto l:on use:int_type_irrel.
+      simp int_type.
       apply int_type_morph.
       (* TODO: deduplicate *)
       move => i k l.
@@ -357,14 +372,17 @@ Lemma ty_sem_preservation Δ A B k (h0 : TyWt Δ A k) (h1 : TyWt Δ B k) ξ :
   - move => Δ A B hA ihA hB ihB T h1 ξ.
     inversion 1; subst.
     dependent elimination h1.
-    simpl.
-    hauto l:on.
+    hauto l:on rew:db:int_type.
   - move => Δ k A hA ihA B hB ξ.
     inversion 1; subst.
     dependent elimination hB.
     simpl.
     extensionality a.
-    by apply ihA.
+    simp int_type.
+    have h : forall s, int_type hA (V_Cons s ξ) a = int_type t4 (V_Cons s ξ) a
+        by hauto lq:on.
+    apply propositional_extensionality.
+    hauto l:on.
 Qed.
 
 Lemma ty_sem_preservation_star Δ A B k (h0 : TyWt Δ A k) (h1 : TyWt Δ B k) ξ :
@@ -377,17 +395,20 @@ Proof.
     hauto lq:on use:@ty_sem_preservation.
 Qed.
 
-Definition tm_val Δ ξ Γ :=
-  forall i A (l : Lookup i Γ A) (h : TyWt Δ A Star), int_type h ξ.
+Definition tm_val ρ Δ ξ Γ :=
+  forall i A (l : Lookup i Γ A) (h : TyWt Δ A Star), int_type h ξ (ρ i).
 
-Equations T_Nil {Δ ξ} : tm_val Δ ξ nil :=
+Equations T_Nil {ρ Δ ξ} : tm_val ρ Δ ξ nil :=
   T_Nil i A !.
 
-Equations T_Cons Δ (ξ : ty_val Δ) A Γ (h : TyWt Δ A Star)
-  (ρ : tm_val Δ ξ Γ) (s : int_type h ξ) : tm_val Δ ξ (A :: Γ) :=
-  T_Cons Δ ξ ?(A) ?(Γ) h ρ s ?(0) A (Here A Γ) h0
-    with int_type_irrel h h0 ξ, int_type h ξ := { | eq_refl , _ := s } ;
-  T_Cons Δ ξ ?(A) ?(Γ) h ρ s i A0 (There n Γ A0 A l) h0 := ρ n A0 l h0.
+Check int_type.
+Compute int_kind Star.
+
+Equations T_Cons ρ Δ (ξ : ty_val Δ) A Γ a (h : TyWt Δ A Star)
+  (hρ : tm_val ρ Δ ξ Γ) (ha : int_type h ξ a) : tm_val (a .: ρ) Δ ξ (A :: Γ) :=
+  T_Cons ρ Δ ξ ?(A) ?(Γ) a h hρ ha ?(0) A (Here A Γ) h0
+    with int_type_irrel h h0 ξ, int_type h ξ := { | eq_refl , _ := ha } ;
+  T_Cons ρ Δ ξ ?(A) ?(Γ) a h hρ ha i A0 (There n Γ A0 A l) h0 := hρ n A0 l h0.
 
 Lemma lookup_map_inv {T U} (f : T -> U) i Γ A : Lookup i (map f Γ) A -> {b : T &  ( prod (Lookup i Γ b) (A = f b))}.
   move E : (list_map f Γ) => Δ h.

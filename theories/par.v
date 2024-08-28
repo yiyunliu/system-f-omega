@@ -372,8 +372,10 @@ Module red_props.
       inversion ha0; subst.
       hauto lq:on inv:SN, SNe ctrs:SN.
       apply S_Abs.
-      admit.
-  Admitted.
+      move : ha1.
+      have -> : subst_Tm (VarTm i…) a0 = ren_Tm (i…) a0 by substify; asimpl.
+      qauto use:antirenaming.
+  Qed.
 
   Lemma CR_Prod s0 s1 : CR s0 -> CR s1 -> CR (fun b => forall a, s0 a -> s1 (TmApp b a)).
   Proof.
@@ -383,3 +385,14 @@ Module red_props.
     - hauto lq:on ctrs:SNRed inv:CR.
     - hauto lq:on ctrs:SNe inv:CR.
   Qed.
+
+  Lemma CR_Forall F : (forall a : Tm, CR (F a)) -> CR (fun b => forall a, F a b).
+  Proof.
+    move => hF.
+    have CR1 := fun a => CR1 _ (hF a).
+    have CR2 := fun a => CR2 _ (hF a).
+    have CR3 := fun a => CR3 _ (hF a) => {hF}.
+    apply CR_intro; firstorder.
+  Qed.
+
+End red_props.
