@@ -182,8 +182,7 @@ Equations adequateP (k : Ki) (s : int_kind k) : Prop :=
   adequateP Star s := CR s ;
   adequateP (Arr k0 k1) s := forall b, adequateP k0 b -> adequateP k1 (s b).
 
-Definition ty_val_ok {Δ} (ξ : ty_val Δ) {i k} (l : Lookup i Δ k) :=
-  adequateP k (ξ i k l).
+Definition ty_val_ok Δ (ξ : ty_val Δ) := forall i k l, adequateP k (ξ i k l).
 
 Equations int_type {Δ A k} (h : TyWt Δ A k) (ξ : ty_val Δ) : int_kind k :=
   int_type (TyT_Var i k l) ξ := ξ i k l ;
@@ -416,63 +415,56 @@ Lemma lookup_map_inv {T U} (f : T -> U) i Γ A : Lookup i (map f Γ) A -> {b : T
   elim : i Δ A /h; sauto lq:on rew:off.
 Defined.
 
-Lemma int_term {Δ Γ a A} (h : Wt Δ Γ a A) :
-  forall ξ (ρ : tm_val Δ ξ Γ),
-    int_type (regularity h) ξ.
+Lemma soundness Δ Γ a A (h : Wt Δ Γ a A) :
+  forall ξ (hξ : ty_val_ok Δ ξ) ρ (hρ : tm_val ρ Δ ξ Γ),
+    int_type (regularity h) ξ (subst_Tm ρ a).
 Proof.
-  induction h.
-  - simp regularity => ξ ρ.
-    apply (ρ _ _ l).
-  - hauto q:on use:T_Cons rew:db:regularity.
-  - move => ξ ρ.
-    move E : (regularity h2) => S.
+  elim : Δ Γ a A / h.
+  - move => Δ Γ i A hΓ l ξ hξ ρ hρ.
+    simp int_type regularity.
+    by apply hρ.
+  - move => Δ Γ A a B hA ha iha ξ hξ ρ hρ.
+    simp int_type regularity.
+    move => a0 ha0.
+    admit.
+  - move => Δ Γ a b A B ha iha hb ihb ξ hξ ρ hρ.
+    simp int_type regularity.
+    move E : (regularity hb) => S.
     dependent elimination S.
-    hauto lq:on use:int_type_irrel rew:db:regularity.
-  - move => ξ ρ.
     simp regularity => /=.
-    move => a0. apply IHh.
-    (* Check tm_val_ren_ty. *)
-    rewrite /tm_val.
-    rewrite /up_Basis.
-    move => i A0 hA0.
-    have [A1 [hl ?]] : { b : Ty & prod (Lookup i Γ b) (A0 = ren_Ty S b)} by eauto using lookup_map_inv.
-    subst.
-    apply ρ in hl.
-    intros h0.
-    have h1 : TyWt Δ A1 Star by eauto using ty_antirenaming, ren_S'.
-    specialize (hl h1).
-    have : int_type h1 ξ = int_type (ty_renaming h1 (ren_S _ _)) (V_Cons a0 ξ).
-    + hauto l:on use:int_type_ren rew:db:ren_S, V_Cons.
-    + have -> : int_type (ty_renaming h1 (ren_S k Δ)) (V_Cons a0 ξ) = int_type h0 (V_Cons a0 ξ)
-        by eauto using int_type_irrel.
-      congruence.
-  - move => ξ ρ.
-    move E :  (regularity h) => S.
+    specialize iha with (1 := hξ) (2 := hρ).
+    specialize ihb with (1 := hξ) (2 := hρ).
+    rewrite E in iha ihb.
+    simp int_type in ihb.
+    apply : ihb.
+    hauto lq:on use:int_type_irrel.
+  - move => Δ Γ k a A ha iha ξ hξ ρ hρ.
+    simp int_type regularity.
+    move => s hs.
+    apply iha.
+    admit.
+    rewrite /up_Basis /tm_val.
+    admit.
+  - move => Δ Γ k a A B hB ha iha ξ hξ ρ hρ.
+    simp int_type regularity.
+    move E : (regularity ha) => S.
     dependent elimination S.
     simp regularity.
-    specialize IHh with (1 := ρ).
-    move : IHh.
-    rewrite E.
-    simp regularity. simpl.
-    move /(_ (int_type t ξ)).
-    intros ih.
-    suff : int_type t5 (V_Cons (int_type t ξ) ξ) = int_type (ty_subst t5 t) ξ by congruence.
-    apply int_type_morph.
-    intros i k l.
-    dependent elimination l.
-    + simp V_Cons.
-      by simp morph_ok_ext.
-    + simp morph_ok_ext.
-      simp V_Cons.
-      by simpl.
-  - move => ξ ρ.
-    move /(_ ξ ρ) : IHh.
-    simp regularity.
-    suff : int_type (regularity h) ξ = int_type t ξ by congruence.
+    specialize iha with (1 := hξ) (2 := hρ).
+    rewrite E in iha.
+    simp int_type in iha.
+    have <- : int_type t4 (V_Cons (int_type hB ξ) ξ) = int_type (ty_subst t4 hB) ξ by admit.
+    apply iha.
+    admit.
+  - move => Δ Γ a A B C ha iha hB hAC hBC ξ hξ ρ hρ.
+    simp int_type regularity.
+    specialize iha with (1 := hξ) (2 := hρ).
+    suff : int_type (regularity ha) ξ = int_type hB ξ by congruence.
     have h1 : TyWt Δ C Star by eauto using ty_preservation_star.
-    have -> : int_type t ξ = int_type h1 ξ by hauto l:on use:ty_sem_preservation_star.
+    have -> : int_type hB ξ = int_type h1 ξ by hauto l:on use:ty_sem_preservation_star.
     hauto l:on use:ty_sem_preservation_star.
-Qed.
+Admitted.
+
 
 Lemma false_imp a : Wt nil nil a (TyForall Star (VarTy 0)) -> False.
 Proof.
