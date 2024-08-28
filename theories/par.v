@@ -386,7 +386,7 @@ Module red_props.
     - hauto lq:on ctrs:SNe inv:CR.
   Qed.
 
-  Lemma CR_Forall F : (forall a : Tm, CR (F a)) -> CR (fun b => forall a, F a b).
+  Lemma CR_Forall {A} (_ : A) F : (forall a : A, CR (F a)) -> CR (fun b => forall a, F a b).
   Proof.
     move => hF.
     have CR1 := fun a => CR1 _ (hF a).

@@ -178,9 +178,9 @@ Definition ty_val_ren {Δ Δ'}
 
 Definition SFun SA SB b : Prop := forall a, SA a -> SB (TmApp b a).
 
-Equations adequateP (k : Ki) (s : int_kind k) : Prop :=
-  adequateP Star s := CR s ;
-  adequateP (Arr k0 k1) s := forall b, adequateP k0 b -> adequateP k1 (s b).
+Equations adequateP k (s : int_kind k) : Prop :=
+  adequateP Star := fun s => CR s ;
+  adequateP (Arr k0 k1) := fun s => forall b, adequateP k0 b -> adequateP k1 (s b).
 
 Definition ty_val_ok Δ (ξ : ty_val Δ) := forall i k l, adequateP k (ξ i k l).
 
@@ -409,11 +409,56 @@ Equations T_Cons ρ Δ (ξ : ty_val Δ) A Γ a (h : TyWt Δ A Star)
     with int_type_irrel h h0 ξ, int_type h ξ := { | eq_refl , _ := ha } ;
   T_Cons ρ Δ ξ ?(A) ?(Γ) a h hρ ha i A0 (There n Γ A0 A l) h0 := hρ n A0 l h0.
 
+Lemma VO_Cons Δ ξ (h : ty_val_ok Δ ξ) k s :
+  adequateP k s -> ty_val_ok (k :: Δ) (V_Cons s ξ).
+Proof.
+  move => hs.
+  rewrite /ty_val_ok.
+  move => i k0 l.
+  dependent elimination l.
+  - simp V_Cons.
+  - simp adequateP V_Cons.
+    apply h.
+Qed.
+
 Lemma lookup_map_inv {T U} (f : T -> U) i Γ A : Lookup i (map f Γ) A -> {b : T &  ( prod (Lookup i Γ b) (A = f b))}.
   move E : (list_map f Γ) => Δ h.
   move : Γ E.
   elim : i Δ A /h; sauto lq:on rew:off.
 Defined.
+
+Lemma int_kind_inhab k : int_kind k.
+  elim k => /=; [exact (const True) | eauto].
+Qed.
+
+Lemma adequacy Δ A k (h : TyWt Δ A k) ξ (hξ : ty_val_ok Δ ξ) :
+  adequateP _ (int_type h ξ).
+Proof.
+  move : ξ hξ.
+  elim : Δ A k / h.
+  - move => Δ i k l ξ hξ. simp int_type. apply hξ.
+  - hauto l:on use:VO_Cons rew:db:adequateP, int_type.
+  - hauto l:on rew:db:int_type, adequateP.
+  - hauto l:on use:red_props.CR_Prod rew:db:int_type, adequateP.
+  - move => Δ k A hA ihA ξ hξ.
+    simp int_type adequateP.
+    simp adequateP in ihA.
+  (*   simp adequateP *)
+  (* forall a : int_kind k, *)
+  (* CR (fun b : Tm => adequateP k a -> int_type hA (V_Cons a ξ) b) *)
+    (* TODO: strengthen CR_Forall *)
+    apply red_props.CR_Forall.
+    + apply int_kind_inhab.
+    + rewrite /ty_val_ok in ihA.
+
+move => a.
+      apply CR_intro.
+      move => a0 h.
+
+
+apply CR_intro.
+
+Admitted.
 
 Lemma soundness Δ Γ a A (h : Wt Δ Γ a A) :
   forall ξ (hξ : ty_val_ok Δ ξ) ρ (hρ : tm_val ρ Δ ξ Γ),
@@ -426,7 +471,16 @@ Proof.
   - move => Δ Γ A a B hA ha iha ξ hξ ρ hρ.
     simp int_type regularity.
     move => a0 ha0.
-    admit.
+    have ha0' : adequateP _ (int_type hA ξ) by hauto l:on use:adequacy.
+    have : adequateP _ (int_type (regularity ha) ξ) by hauto l:on use:adequacy.
+    simp adequateP in *.
+    move /CR2.
+    apply => /=.
+    apply S_AppAbs.
+    by apply ha0'.
+    asimpl.
+    apply : iha => //.
+    hauto l:on use:T_Cons.
   - move => Δ Γ a b A B ha iha hb ihb ξ hξ ρ hρ.
     simp int_type regularity.
     move E : (regularity hb) => S.
