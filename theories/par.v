@@ -1,9 +1,4 @@
 Require Export imports.
-From Ltac2 Require Import Ltac2.
-Import Ltac2.Constr.
-Import Ltac2.Constr.Unsafe.
-Require Ltac2.Control.
-Set Default Proof Mode "Classic".
 
 Inductive TyPar : Ty -> Ty -> Type :=
 | TP_Var i :

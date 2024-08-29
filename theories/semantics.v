@@ -400,9 +400,6 @@ Definition tm_val ρ Δ ξ Γ :=
 Equations T_Nil {ρ Δ ξ} : tm_val ρ Δ ξ nil :=
   T_Nil i A !.
 
-Check int_type.
-Compute int_kind Star.
-
 Equations T_Cons ρ Δ (ξ : ty_val Δ) A Γ a (h : TyWt Δ A Star)
   (hρ : tm_val ρ Δ ξ Γ) (ha : int_type h ξ a) : tm_val (a .: ρ) Δ ξ (A :: Γ) :=
   T_Cons ρ Δ ξ ?(A) ?(Γ) a h hρ ha ?(0) A (Here A Γ) h0
