@@ -427,8 +427,13 @@ Lemma lookup_map_inv {T U} (f : T -> U) i Γ A : Lookup i (map f Γ) A -> {b : T
   elim : i Δ A /h; sauto lq:on rew:off.
 Defined.
 
-Lemma int_kind_inhab k : int_kind k.
-  elim k => /=; [exact (const True) | eauto].
+Lemma int_kind_inhab k : exists s, adequateP k s.
+  elim k => /=.
+  - firstorder using red_props.CR_SN.
+  - move => k0 [s0 hs0] k1 [s1 hs1].
+    simp adequateP.
+    exists (const s1).
+    by simpl.
 Qed.
 
 Lemma adequacy Δ A k (h : TyWt Δ A k) ξ (hξ : ty_val_ok Δ ξ) :
@@ -443,22 +448,9 @@ Proof.
   - move => Δ k A hA ihA ξ hξ.
     simp int_type adequateP.
     simp adequateP in ihA.
-  (*   simp adequateP *)
-  (* forall a : int_kind k, *)
-  (* CR (fun b : Tm => adequateP k a -> int_type hA (V_Cons a ξ) b) *)
-    (* TODO: strengthen CR_Forall *)
-    apply red_props.CR_Forall.
-    + apply int_kind_inhab.
-    + rewrite /ty_val_ok in ihA.
-
-move => a.
-      apply CR_intro.
-      move => a0 h.
-
-
-apply CR_intro.
-
-Admitted.
+    have [s ?] := int_kind_inhab k.
+    hauto lq:on use:red_props.CR_Forall, VO_Cons.
+Qed.
 
 Lemma soundness Δ Γ a A (h : Wt Δ Γ a A) :
   forall ξ (hξ : ty_val_ok Δ ξ) ρ (hρ : tm_val ρ Δ ξ Γ),
@@ -496,9 +488,20 @@ Proof.
     simp int_type regularity.
     move => s hs.
     apply iha.
-    admit.
+    hauto l:on use:VO_Cons.
     rewrite /up_Basis /tm_val.
-    admit.
+    move => i A0 hA0.
+    have [A1 [hl ?]] : {b : Ty & prod (Lookup i Γ b) (A0 = ren_Ty S b)}
+      by eauto using lookup_map_inv. subst.
+    apply hρ in hl.
+    move => h0.
+    have h1 : TyWt Δ A1 Star by eauto using ty_antirenaming, ren_S'.
+    specialize (hl h1).
+    have : int_type h1 ξ = int_type (ty_renaming h1 (ren_S _ _)) (V_Cons s ξ).
+    + hauto l:on use:int_type_ren rew:db:ren_S, V_Cons.
+    + have -> : int_type (ty_renaming h1 (ren_S k Δ)) (V_Cons s ξ) = int_type h0 (V_Cons s ξ)
+        by eauto using int_type_irrel.
+      congruence.
   - move => Δ Γ k a A B hB ha iha ξ hξ ρ hρ.
     simp int_type regularity.
     move E : (regularity ha) => S.
@@ -507,9 +510,9 @@ Proof.
     specialize iha with (1 := hξ) (2 := hρ).
     rewrite E in iha.
     simp int_type in iha.
-    have <- : int_type t4 (V_Cons (int_type hB ξ) ξ) = int_type (ty_subst t4 hB) ξ by admit.
-    apply iha.
-    admit.
+    suff <- : int_type t4 (V_Cons (int_type hB ξ) ξ) = int_type (ty_subst t4 hB) ξ by hauto l:on use:adequacy.
+    apply int_type_morph; intros i k l;
+      dependent elimination l; by simp morph_ok_ext V_Cons.
   - move => Δ Γ a A B C ha iha hB hAC hBC ξ hξ ρ hρ.
     simp int_type regularity.
     specialize iha with (1 := hξ) (2 := hρ).
@@ -517,18 +520,4 @@ Proof.
     have h1 : TyWt Δ C Star by eauto using ty_preservation_star.
     have -> : int_type hB ξ = int_type h1 ξ by hauto l:on use:ty_sem_preservation_star.
     hauto l:on use:ty_sem_preservation_star.
-Admitted.
-
-
-Lemma false_imp a : Wt nil nil a (TyForall Star (VarTy 0)) -> False.
-Proof.
-  move => h.
-  have := int_term h V_Nil T_Nil.
-  move : (regularity h) => u.
-  dependent elimination u.
-  simpl.
-  move /(_ False).
-  dependent elimination t4.
-  simpl.
-  dependent elimination l. simp V_Cons.
 Qed.

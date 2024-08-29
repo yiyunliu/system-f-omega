@@ -386,12 +386,14 @@ Module red_props.
     - hauto lq:on ctrs:SNe inv:CR.
   Qed.
 
-  Lemma CR_Forall {A} (_ : A) F : (forall a : A, CR (F a)) -> CR (fun b => forall a, F a b).
+  Lemma CR_SN : CR SN.
+  Proof.
+    apply CR_intro; eauto with rdb.
+  Qed.
+
+  Lemma CR_Forall {A} (x : A) (P : A -> Prop) (_ : P x) F : (forall a : A, P a -> CR (F a)) -> CR (fun b => forall a, P a -> F a b).
   Proof.
     move => hF.
-    have CR1 := fun a => CR1 _ (hF a).
-    have CR2 := fun a => CR2 _ (hF a).
-    have CR3 := fun a => CR3 _ (hF a) => {hF}.
     apply CR_intro; firstorder.
   Qed.
 
