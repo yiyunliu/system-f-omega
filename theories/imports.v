@@ -10,7 +10,6 @@ Derive NoConfusion for Tm.
 
 
 From Hammer Require Export Tactics.
-From stdpp Require Export relations (rtc, rtc_transitive, rtc_once, rtc_inv, rtc(..), diamond, confluent, diamond_confluent, sn) base(sum_relation(..)).
 Require Export Psatz.
 
 Global Set Warnings "-notation-overridden".

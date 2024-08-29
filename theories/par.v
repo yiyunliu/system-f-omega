@@ -47,23 +47,6 @@ Inductive RTC  : Ty -> Ty -> Type :=
 Definition ICoherent A0 A1 : Type :=
   { B : Ty &  prod (RTC A0 B) (RTC A1 B)}.
 
-Ltac revert_all_terms :=
-  repeat (progress
-            (match goal with
-               [_x : Tm |- _] => (revert _x)
-             end)).
-
-Ltac solve_s_rec :=
-  move => *; eapply rtc_l; eauto;
-         hauto lq:on ctrs:Par use:par_refl.
-
-Ltac solve_pars_cong :=
-  repeat (  let x := fresh "x" in
-            intros * x;
-            revert_all_terms;
-            induction x; last by solve_s_rec);
-  auto using rtc_refl.
-
 (* Based on https://poplmark-reloaded.github.io/coq/well-scoped/PR.sn_defs.html *)
 Inductive SN : Tm -> Prop :=
 | S_Neu a : SNe a -> SN a
