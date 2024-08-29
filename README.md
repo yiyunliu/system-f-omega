@@ -1,7 +1,7 @@
 # Strong normalization and parametricity for System F Omega in Coq
 A simple model for curry-style System F Omega (PTS with type-level computation and polymorphism, but without dependent types) mechanized in Coq.
 
-The default [fomega](/yiyunliu/system-f-omega/tree/fomega) branch contains the SN proof. The parametricity proof, based on Harper's notes [Reynolds’s Parametricity Theorem, Directly](https://www.cs.cmu.edu/~rwh/courses/chtt/pdfs/reynolds.pdf), can be found in the [zigzag](/yiyunliu/system-f-omega/tree/zigzag) branch.
+The default [fomega](https://github.com/yiyunliu/system-f-omega) branch contains the SN proof. The parametricity proof, based on Harper's notes [Reynolds’s Parametricity Theorem, Directly](https://www.cs.cmu.edu/~rwh/courses/chtt/pdfs/reynolds.pdf), can be found in the [zigzag](https://github.com/yiyunliu/system-f-omega/tree/zigzag) branch.
 
 Coq's impredicative sort `Prop` is necessary for the proof to go through because the object language is impredicative. The lack of impredicativity from the metalanguage is the reason why [this Agda development](https://github.com/AndrasKovacs/system-f-omega) is incomplete.
 
