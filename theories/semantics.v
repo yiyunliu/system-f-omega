@@ -427,13 +427,15 @@ Lemma lookup_map_inv {T U} (f : T -> U) i Γ A : Lookup i (map f Γ) A -> {b : T
   elim : i Δ A /h; sauto lq:on rew:off.
 Defined.
 
-Lemma int_kind_inhab k : exists s, adequateP k s.
+Equations def_cand k : int_kind k :=
+  def_cand Star := SN ;
+  def_cand (Arr k0 k1) := const (def_cand k1).
+
+Lemma def_cand_adequate k : adequateP _ (def_cand k).
   elim k => /=.
   - firstorder using red_props.CR_SN.
-  - move => k0 [s0 hs0] k1 [s1 hs1].
+  - move => k0 hk0 k1 hk1.
     simp adequateP.
-    exists (const s1).
-    by simpl.
 Qed.
 
 Lemma adequacy Δ A k (h : TyWt Δ A k) ξ (hξ : ty_val_ok Δ ξ) :
@@ -445,11 +447,28 @@ Proof.
   - hauto l:on use:VO_Cons rew:db:adequateP, int_type.
   - hauto l:on rew:db:int_type, adequateP.
   - hauto l:on use:red_props.CR_Prod rew:db:int_type, adequateP.
-  - move => Δ k A hA ihA ξ hξ.
-    simp int_type adequateP.
-    simp adequateP in ihA.
-    have [s ?] := int_kind_inhab k.
-    hauto lq:on use:red_props.CR_Forall, VO_Cons.
+  - move => Δ k *.
+    hauto lq:on use:(def_cand_adequate k), red_props.CR_Forall, VO_Cons
+      rew:db:int_type, adequateP.
+Qed.
+
+Definition def_val Δ i k (l : Lookup i Δ k) := def_cand k.
+
+Lemma def_val_adequate Δ : ty_val_ok Δ (def_val Δ).
+Proof.
+  rewrite /def_val /ty_val_ok.
+  eauto using def_cand_adequate.
+Qed.
+
+Lemma var_tm_id Δ Γ : tm_val VarTm Δ (def_val Δ) Γ.
+Proof.
+  rewrite /tm_val.
+  move => i A hA h.
+  have : adequateP _ (int_type h (def_val Δ))
+    by eauto using adequacy, def_val_adequate.
+  simp adequateP. move /CR3.
+  apply.
+  apply S_Var.
 Qed.
 
 Lemma soundness Δ Γ a A (h : Wt Δ Γ a A) :
@@ -520,4 +539,16 @@ Proof.
     have h1 : TyWt Δ C Star by eauto using ty_preservation_star.
     have -> : int_type hB ξ = int_type h1 ξ by hauto l:on use:ty_sem_preservation_star.
     hauto l:on use:ty_sem_preservation_star.
+Qed.
+
+Theorem f_omega_sn Δ Γ a A : Wt Δ Γ a A -> SN a.
+Proof.
+  move => h. have h0 := soundness.
+  specialize h0 with (1 := def_val_adequate Δ) (2 := var_tm_id Δ Γ).
+  specialize (h0 a A h).
+  have : adequateP _ (int_type (regularity h) (def_val Δ)) by
+    eauto using adequacy, def_val_adequate.
+  simp adequateP.
+  move /CR1. apply.
+  by asimpl in h0.
 Qed.
