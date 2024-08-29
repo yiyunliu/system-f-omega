@@ -1,18 +1,9 @@
-# Strong normalization for System F Omega in Coq
-A simple model for curry-style System F Omega (PTS with type-level computation and polymorphism, but without dependent types) mechanized in Coq.
-
-Coq's impredicative sort `Prop` is necessary for the proof to go through because the object language is impredicative. The lack of impredicativity from the metalanguage is the reason why [this Agda development](https://github.com/AndrasKovacs/system-f-omega) is incomplete.
-
-I only proved strong normalization for terms but not for types. The latter is quite easy because type-level computation is simply typed and can be proven independently from the SN result for terms.
-
-The strong normalization proof can be extended to a strong normalization proof for Calculus of Constructions (CoC) by translating CoC terms to F Omega terms. The translation proof does not require impredicativity and can be carried out in Agda and Coq alike. Note that this translation proof is no longer possible the moment you extend CoC with large elimination because the translation fundamentally relies on the erasure of terms appearing in types (which also means CoC is a bad example for understanding how to model the mutual dependency between terms and types).
-
-The development relies on functional and propositional extensionality. There are ways to get rid of them, though I decided to take the easy way out for the sake of my sanity.
-
+# Parametricity for System F Omega in Coq
 Here are some references I used for this development:
 - [A short and flexible proof of strong normalization for the calculus of constructions](https://pure.tue.nl/ws/files/2181809/9511424.pdf)
 - [Coq in Coq](https://github.com/coq-contribs/coq-in-coq)
 - [POPLmark Reloaded](https://poplmark-reloaded.github.io)
+- [Reynolds's Parametricity Theorem, Directly](https://www.cs.cmu.edu/~rwh/courses/chtt/pdfs/reynolds.pdf)
 
 # Structure of the development
 The Coq files are stored under the [theories](theories) directory.
@@ -23,11 +14,10 @@ The [Autosubst2](theories/Autosubst2) directory contains the syntax files genera
 
 [typing.v](theories/typing.v) contains the typing judgments of the language, including type well-formedness (`TyWt`) and term well-typedness (`Wt`).
 
-[semantics.v](theories/semantics.v) contains the semantic interpretations for kinds (`int_kind`) and types (`int_type`). The fundamental theorem is named `soundness` and the final strong normalization result `f_omega_sn`.
+[semantics.v](theories/semantics.v) contains the semantic interpretations for kinds (`int_kind`) and types (`int_type`). The fundamental theorem is named `soundness`.
 
 # Dependencies
 - coq-hammer-tactics 1.3.2
-- stdpp 1.10.0
 - coq 8.19.2
 - coq-equations 1.3
 - coq-autosubst-ocaml 1.1

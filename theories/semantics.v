@@ -158,7 +158,7 @@ regularity (A := ?(B)) (T_Conv a A B C ha hB _ _) := hB.
 
 Fixpoint int_kind k :=
   match k with
-  | Star => Tm -> Prop
+  | Star => Tm -> Tm -> Prop
   | Arr k0 k1 => int_kind k0 -> int_kind k1
   end.
 
@@ -189,9 +189,10 @@ Equations int_type {Δ A k} (h : TyWt Δ A k) (ξ : ty_val Δ) : int_kind k :=
   int_type (TyT_Abs A k0 k1 hA) ξ := fun s0 => int_type hA (V_Cons s0 ξ);
   int_type (TyT_App b a k0 k1 hb ha) ξ := int_type hb ξ (int_type ha ξ);
   int_type (TyT_Fun A B hA hB) ξ :=
-    fun b => forall a, (int_type hA ξ) a -> (int_type hB ξ) (TmApp b a);
+    fun b0 b1 => forall a0 a1, (int_type hA ξ) a0 a1 ->
+                        (int_type hB ξ) (TmApp b0 a0) (TmApp b1 a1);
   int_type (TyT_Forall k A hA) ξ :=
-    fun b => forall s, adequateP _ s -> int_type hA (V_Cons s ξ) b.
+    fun b0 b1 => forall s, adequateP _ s -> int_type hA (V_Cons s ξ) b0 b1.
 
 Lemma kind_unique Δ A k (h0 : TyWt Δ A k ) : forall k0, TyWt Δ A k0 -> k = k0.
 Proof.
@@ -241,7 +242,8 @@ Proof.
     dependent elimination h0.
     simpl.
     simp int_type.
-    extensionality b.
+    extensionality b0.
+    extensionality b1.
     have ? : forall s, int_type t (V_Cons s ξ) = int_type t5 (V_Cons s ξ) by scongruence.
     apply propositional_extensionality.
     qauto l:on.
@@ -272,7 +274,8 @@ Proof.
         move => s; apply ihA => i k0 l;
                               dependent elimination l; sfirstorder rew:db:ren_up.
     clear => h.
-    extensionality s.
+    extensionality b0.
+    extensionality b1.
     apply propositional_extensionality.
     have : forall P0 P1, (forall s, P0 s = P1 s) -> (forall s, (P0 s : Prop)) <-> (forall s, P1 s) by hauto lq:on.
     apply.
@@ -309,7 +312,7 @@ Proof.
   - hauto l:on rew:db:int_type.
   - move => Δ k A hA ihA Δ' ρ ξ ξ' hρ hρ'.
     simpl.
-    simp int_type. extensionality b.
+    simp int_type. extensionality b0. extensionality b1.
     have : forall s, int_type hA (V_Cons s ξ) = int_type (ty_morphing hA (morph_up ρ Δ Δ' hρ k)) (V_Cons s ξ').
     {
       move => s. apply ihA.
@@ -376,9 +379,10 @@ Lemma ty_sem_preservation Δ A B k (h0 : TyWt Δ A k) (h1 : TyWt Δ B k) ξ :
     inversion 1; subst.
     dependent elimination hB.
     simpl.
-    extensionality a.
+    extensionality a0.
+    extensionality a1.
     simp int_type.
-    have h : forall s, int_type hA (V_Cons s ξ) a = int_type t4 (V_Cons s ξ) a
+    have h : forall s, int_type hA (V_Cons s ξ) a0 a1 = int_type t4 (V_Cons s ξ) a0 a1
         by hauto lq:on.
     apply propositional_extensionality.
     hauto l:on.
@@ -394,17 +398,17 @@ Proof.
     hauto lq:on use:@ty_sem_preservation.
 Qed.
 
-Definition tm_val ρ Δ ξ Γ :=
-  forall i A (l : Lookup i Γ A) (h : TyWt Δ A Star), int_type h ξ (ρ i).
+Definition tm_val ρ0 ρ1 Δ ξ Γ :=
+  forall i A (l : Lookup i Γ A) (h : TyWt Δ A Star), int_type h ξ (ρ0 i) (ρ1 i).
 
-Equations T_Nil {ρ Δ ξ} : tm_val ρ Δ ξ nil :=
+Equations T_Nil {ρ0 ρ1 Δ ξ} : tm_val ρ0 ρ1 Δ ξ nil :=
   T_Nil i A !.
 
-Equations T_Cons ρ Δ (ξ : ty_val Δ) A Γ a (h : TyWt Δ A Star)
-  (hρ : tm_val ρ Δ ξ Γ) (ha : int_type h ξ a) : tm_val (a .: ρ) Δ ξ (A :: Γ) :=
-  T_Cons ρ Δ ξ ?(A) ?(Γ) a h hρ ha ?(0) A (Here A Γ) h0
+Equations T_Cons ρ0 ρ1 Δ (ξ : ty_val Δ) A Γ a0 a1 (h : TyWt Δ A Star)
+  (hρ : tm_val ρ0 ρ1 Δ ξ Γ) (ha : int_type h ξ a0 a1) : tm_val (a0 .: ρ0) (a1 .: ρ1) Δ ξ (A :: Γ) :=
+  T_Cons ρ0 ρ1 Δ ξ ?(A) ?(Γ) a0 a1 h hρ ha ?(0) A (Here A Γ) h0
     with int_type_irrel h h0 ξ, int_type h ξ := { | eq_refl , _ := ha } ;
-  T_Cons ρ Δ ξ ?(A) ?(Γ) a h hρ ha i A0 (There n Γ A0 A l) h0 := hρ n A0 l h0.
+  T_Cons ρ0 ρ1 Δ ξ ?(A) ?(Γ) a0 a1 h hρ ha i A0 (There n Γ A0 A l) h0 := hρ n A0 l h0.
 
 Lemma VO_Cons Δ ξ (h : ty_val_ok Δ ξ) k s :
   adequateP k s -> ty_val_ok (k :: Δ) (V_Cons s ξ).
@@ -425,12 +429,12 @@ Lemma lookup_map_inv {T U} (f : T -> U) i Γ A : Lookup i (map f Γ) A -> {b : T
 Defined.
 
 Equations def_cand k : int_kind k :=
-  def_cand Star := SN ;
+  def_cand Star := fun _ _ => False ;
   def_cand (Arr k0 k1) := const (def_cand k1).
 
 Lemma def_cand_adequate k : adequateP _ (def_cand k).
   elim k => /=.
-  - firstorder using red_props.CR_SN.
+  - qauto ctrs:CR rew:db:adequateP.
   - move => k0 hk0 k1 hk1.
     simp adequateP.
 Qed.
@@ -457,39 +461,27 @@ Proof.
   eauto using def_cand_adequate.
 Qed.
 
-Lemma var_tm_id Δ Γ : tm_val VarTm Δ (def_val Δ) Γ.
-Proof.
-  rewrite /tm_val.
-  move => i A hA h.
-  have : adequateP _ (int_type h (def_val Δ))
-    by eauto using adequacy, def_val_adequate.
-  simp adequateP. move /CR3.
-  apply.
-  apply S_Var.
-Qed.
-
 Lemma soundness Δ Γ a A (h : Wt Δ Γ a A) :
-  forall ξ (hξ : ty_val_ok Δ ξ) ρ (hρ : tm_val ρ Δ ξ Γ),
-    int_type (regularity h) ξ (subst_Tm ρ a).
+  forall ξ (hξ : ty_val_ok Δ ξ) ρ0 ρ1 (hρ : tm_val ρ0 ρ1 Δ ξ Γ),
+    int_type (regularity h) ξ (subst_Tm ρ0 a) (subst_Tm ρ1 a).
 Proof.
   elim : Δ Γ a A / h.
-  - move => Δ Γ i A hΓ l ξ hξ ρ hρ.
+  - move => Δ Γ i A hΓ l ξ hξ ρ0 ρ1 hρ.
     simp int_type regularity.
     by apply hρ.
-  - move => Δ Γ A a B hA ha iha ξ hξ ρ hρ.
+  - move => Δ Γ A a B hA ha iha ξ hξ ρ0 ρ1 hρ.
     simp int_type regularity.
-    move => a0 ha0.
+    move => a0 a1 ha0.
     have ha0' : adequateP _ (int_type hA ξ) by hauto l:on use:adequacy.
     have : adequateP _ (int_type (regularity ha) ξ) by hauto l:on use:adequacy.
     simp adequateP in *.
-    move /CR2.
+    move /CR1.
     apply => /=.
-    apply S_AppAbs.
-    by apply ha0'.
-    asimpl.
-    apply : iha => //.
+    apply R_AppAbs.
+    apply R_AppAbs.
+    asimpl. apply iha => //=.
     hauto l:on use:T_Cons.
-  - move => Δ Γ a b A B ha iha hb ihb ξ hξ ρ hρ.
+  - move => Δ Γ a b A B ha iha hb ihb ξ hξ ρ0 ρ1 hρ.
     simp int_type regularity.
     move E : (regularity hb) => S.
     dependent elimination S.
@@ -500,7 +492,7 @@ Proof.
     simp int_type in ihb.
     apply : ihb.
     hauto lq:on use:int_type_irrel.
-  - move => Δ Γ k a A ha iha ξ hξ ρ hρ.
+  - move => Δ Γ k a A ha iha ξ hξ ρ0 ρ1 hρ.
     simp int_type regularity.
     move => s hs.
     apply iha.
@@ -518,7 +510,7 @@ Proof.
     + have -> : int_type (ty_renaming h1 (ren_S k Δ)) (V_Cons s ξ) = int_type h0 (V_Cons s ξ)
         by eauto using int_type_irrel.
       congruence.
-  - move => Δ Γ k a A B hB ha iha ξ hξ ρ hρ.
+  - move => Δ Γ k a A B hB ha iha ξ hξ ρ0 ρ1 hρ.
     simp int_type regularity.
     move E : (regularity ha) => S.
     dependent elimination S.
@@ -529,23 +521,11 @@ Proof.
     suff <- : int_type t4 (V_Cons (int_type hB ξ) ξ) = int_type (ty_subst t4 hB) ξ by hauto l:on use:adequacy.
     apply int_type_morph; intros i k l;
       dependent elimination l; by simp morph_ok_ext V_Cons.
-  - move => Δ Γ a A B C ha iha hB hAC hBC ξ hξ ρ hρ.
+  - move => Δ Γ a A B C ha iha hB hAC hBC ξ hξ ρ0 ρ1 hρ.
     simp int_type regularity.
     specialize iha with (1 := hξ) (2 := hρ).
     suff : int_type (regularity ha) ξ = int_type hB ξ by congruence.
     have h1 : TyWt Δ C Star by eauto using ty_preservation_star.
     have -> : int_type hB ξ = int_type h1 ξ by hauto l:on use:ty_sem_preservation_star.
     hauto l:on use:ty_sem_preservation_star.
-Qed.
-
-Theorem f_omega_sn Δ Γ a A : Wt Δ Γ a A -> SN a.
-Proof.
-  move => h. have h0 := soundness.
-  specialize h0 with (1 := def_val_adequate Δ) (2 := var_tm_id Δ Γ).
-  specialize (h0 a A h).
-  have : adequateP _ (int_type (regularity h) (def_val Δ)) by
-    eauto using adequacy, def_val_adequate.
-  simp adequateP.
-  move /CR1. apply.
-  by asimpl in h0.
 Qed.
