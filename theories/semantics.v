@@ -365,44 +365,51 @@ Lemma ty_sem_preservation Δ A B k (h0 : TyWt Δ A k) (h1 : TyWt Δ B k) ξ0 ξ1
         by hauto lq:on rew:off ctrs:TyWt, TyPar inv:TyPar use:ty_preservation.
       move : ihB (hp); repeat move/[apply].
       move /(_ hp' ξ0 ξ1 hξ). simp int_type int_eq => ih.
-
-      move => ->.
-      dependent elimination hp'.
-      simpl.
-      have h : TyWt Δ a1 k3 by eauto using ty_preservation.
-      have -> : int_type h1 ξ = int_type (ty_subst t h) ξ by hauto l:on use:int_type_irrel.
-      simp int_type.
+      have ha1 : TyWt Δ a1 k0 by eauto using ty_preservation.
+      have {}ihA : int_eq _ (int_type hA ξ0) (int_type ha1 ξ1) by eauto.
+      specialize ih with (1 := ihA).
+      apply : int_eq_trans; eauto.
+      dependent elimination hp'. simp int_type.
+      have : int_eq _  (int_type (ty_subst t ha1) ξ1) (int_type h1 ξ1) by
+        eauto using int_type_irrel, int_eq_ok0, int_eq_ok1.
+      apply int_eq_trans.
       apply int_type_morph.
-      (* TODO: deduplicate *)
-      move => i k l.
-      dependent elimination l.
-      * simp morph_ok_ext V_Cons.
-      * simp morph_ok_ext V_Cons.
-        by simpl.
-  - move => Δ A B hA ihA hB ihB T h1 ξ.
+      * eauto using int_eq_ok1.
+      * move => i k l.
+        dependent elimination l.
+        ** simp morph_ok_ext.
+           simp V_Cons.
+           eauto using int_eq_ok1.
+        ** simp V_Cons morph_ok_ext.
+           rewrite /morph_id.
+           rewrite int_type_equation_1.
+           eauto using int_eq_ok1.
+  - move => Δ A B hA ihA hB ihB T h1 ξ0 ξ1 hξ.
     inversion 1; subst.
     dependent elimination h1.
-    hauto l:on rew:db:int_type.
-  - move => Δ k A hA ihA B hB ξ.
+    hauto l:on rew:db:int_type, int_eq.
+  - move => Δ k A hA ihA B hB ξ0 ξ1 hξ.
     inversion 1; subst.
     dependent elimination hB.
-    simpl.
-    extensionality a.
-    simp int_type.
-    have h : forall s, int_type hA (V_Cons s ξ) a = int_type t4 (V_Cons s ξ) a
-        by hauto lq:on.
-    apply propositional_extensionality.
-    hauto l:on.
+    simp int_eq int_type.
+    move => a.
+    suff h : forall s, int_eq _ s s -> int_type hA (V_Cons s ξ0) a <-> int_type t4 (V_Cons s ξ1) a by hauto lq:on.
+    move => s hs. simp int_eq in ihA. apply ihA=>//.
+    move => i k l. dependent elimination l; by simp V_Cons int_eq.
 Qed.
 
+From Hammer Require Import Hammer.
+
 Lemma ty_sem_preservation_star Δ A B k (h0 : TyWt Δ A k) (h1 : TyWt Δ B k) ξ :
+  (forall i k (l : Lookup i Δ k), int_eq _ (ξ _ _ l) (ξ _ _ l)) ->
   RTC A B ->
-  int_type h0 ξ  = int_type h1 ξ.
+  int_eq _ (int_type h0 ξ) (int_type h1 ξ).
 Proof.
+  move => hξ.
   induction 1.
-  - hauto lq:on use:int_type_irrel.
+  - hauto l:on use:int_type_irrel, int_eq_ok1.
   - have : TyWt Δ B k  by hauto l:on use:ty_preservation.
-    hauto lq:on use:@ty_sem_preservation.
+    hauto l:on ctrs:RTC use:@ty_sem_preservation, int_eq_trans.
 Qed.
 
 Definition tm_val ρ Δ ξ Γ :=
