@@ -276,50 +276,62 @@ Proof.
     move => i k0 l. dependent elimination l; simp int_eq V_Cons.
 Qed.
 
+Lemma int_eq_sym k p0 p1 : int_eq k p0 p1 -> int_eq k p1 p0.
+  elim : k p0 p1; hauto lq:on rew:db:int_eq. Qed.
+
+Lemma int_eq_trans k p0 p1 p2 : int_eq k p0 p1 -> int_eq k p1 p2 -> int_eq k p0 p2.
+Proof.
+  elim : k p0 p1 p2.
+  - hauto lq:on rew:db:int_eq.
+  - hauto lq:on use:int_eq_sym rew:db:int_eq.
+Qed.
+
+Lemma int_eq_ok0 : forall k p0 p1, int_eq k p0 p1 -> int_eq k p0 p0.
+  eauto using int_eq_sym, int_eq_trans.
+Qed.
+
+Lemma int_eq_ok1 : forall k p0 p1, int_eq k p0 p1 -> int_eq k p1 p1.
+  eauto using int_eq_sym, int_eq_trans.
+Qed.
+
 Lemma int_type_morph {Δ Δ' A k} (h : TyWt Δ A k) :
   forall ρ
     (ξ : ty_val Δ)
     (ξ' : ty_val Δ')
-    (hρ : forall i k, Lookup i Δ k -> TyWt Δ' (ρ i) k),
-    (forall i k (l : Lookup i Δ k), ξ _ _ l = int_type (hρ _ _ l) ξ') ->
-    int_type h ξ = int_type (ty_morphing h hρ) ξ'.
+    (hρ : forall i k, Lookup i Δ k -> TyWt Δ' (ρ i) k)
+    (hξ' : forall i k (l : Lookup i Δ' k), int_eq _ (ξ' _ _ l) (ξ' _ _ l)),
+    (forall i k (l : Lookup i Δ k), int_eq _ (ξ _ _ l) (int_type (hρ _ _ l) ξ')) ->
+    int_eq _ (int_type h ξ) (int_type (ty_morphing h hρ) ξ').
 Proof.
   move : Δ'.
   elim : Δ A k /h.
   - move => *. simp int_type.
-  - move => Δ A k0 k1 hA ihA Δ' ρ ξ ξ' hρ hρ' /=.
-    simp int_type.
-    extensionality s.
-    apply ihA.
-    intros i k l.
-    dependent elimination l.
-    + rewrite /morph_up. simp morph_ok_ext.
-      simpl.
-      by simp V_Cons.
-    + rewrite /morph_up. simp morph_ok_ext.
-      simp V_Cons.
-      rewrite /morph_ren_comp.
-      have <- : int_type (hρ n A1 l) ξ' = int_type (ty_renaming (hρ n A1 l) (ren_S B Δ')) (V_Cons s ξ')
-        by hauto l:on use:int_type_ren rew:db:V_Cons, ren_S.
-      apply hρ'.
-  - hauto l:on rew:db:int_type.
-  - hauto l:on rew:db:int_type.
-  - move => Δ k A hA ihA Δ' ρ ξ ξ' hρ hρ'.
-    simpl.
-    simp int_type. extensionality b.
-    have : forall s, int_type hA (V_Cons s ξ) = int_type (ty_morphing hA (morph_up ρ Δ Δ' hρ k)) (V_Cons s ξ').
-    {
-      move => s. apply ihA.
-      move => i k0 l. dependent elimination l. reflexivity.
-      simp V_Cons. rewrite /morph_up /morph_ren_comp.
-      simp morph_ok_ext int_type V_Cons ty_renaming.
-      have <- : int_type (hρ n A1 l) ξ' = int_type (ty_renaming (hρ n A1 l) (ren_S B Δ')) (V_Cons s ξ') by
+  - move => Δ A k0 k1 hA ihA Δ' ρ ξ ξ' hρ hξ' hρ' /=.
+    simp int_type int_eq => p0 p1 hp.
+    apply ihA => i k l.
+    + dependent elimination l; simp int_eq V_Cons; eauto using int_eq_ok1, int_eq_ok0.
+    + dependent elimination l.
+      * rewrite /morph_up. simp morph_ok_ext.
+      * rewrite /morph_up. simp morph_ok_ext.
+        simp V_Cons.
+        rewrite /morph_ren_comp.
+        suff : int_eq _ (int_type (hρ n A1 l) ξ') (int_type (ty_renaming (hρ n A1 l) (ren_S B Δ')) (V_Cons p1 ξ')) by hauto l:on use:int_eq_trans.
+        apply int_type_ren.
+        move => i k l0. simp int_eq V_Cons ren_S.
+  - hauto l:on rew:db:int_type, int_eq.
+  - hauto l:on rew:db:int_type, int_eq.
+  - move => Δ k A hA ihA Δ' ρ ξ ξ' hρ hξ' hρ' /=.
+    simp int_type int_eq.
+    suff : forall s, int_eq _ s s -> forall b, (int_type hA (V_Cons s ξ)) b <->  (int_type (ty_morphing hA (morph_up ρ Δ Δ' hρ k)) (V_Cons s ξ')) b by hauto lq:on.
+    move => s hs b.
+    simp int_eq in ihA. apply ihA => i k0 l.
+    + dependent elimination l; simp V_Cons.
+    + dependent elimination l;
+        rewrite /morph_up /morph_ren_comp;
+        simp morph_ok_ext int_type V_Cons ty_renaming.
+      have : int_eq _ (int_type (hρ n A1 l) ξ') (int_type (ty_renaming (hρ n A1 l) (ren_S B Δ')) (V_Cons s ξ')) by
         hauto l:on use:int_type_ren rew:db:V_Cons, ren_S.
-      apply hρ'.
-    }
-    clear => h.
-    apply propositional_extensionality.
-    qauto l:on.
+      hauto l:on use:int_eq_trans.
 Qed.
 
 Lemma ty_sem_preservation Δ A B k (h0 : TyWt Δ A k) (h1 : TyWt Δ B k) ξ0 ξ1 :
