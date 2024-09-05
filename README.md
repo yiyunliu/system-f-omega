@@ -1,5 +1,5 @@
 # Strong normalization and parametricity for System F Omega in Coq
-A simple model for curry-style System F Omega (PTS with type-level computation and polymorphism, but without dependent types) mechanized in Coq.
+An axiom-free model for curry-style System F Omega (PTS with type-level computation and polymorphism, but without dependent types) mechanized in Coq.
 
 The default [fomega](https://github.com/yiyunliu/system-f-omega) branch contains the SN proof. The parametricity proof, based on Harper's notes [Reynolds’s Parametricity Theorem, Directly](https://www.cs.cmu.edu/~rwh/courses/chtt/pdfs/reynolds.pdf), can be found in the [zigzag](https://github.com/yiyunliu/system-f-omega/tree/zigzag) branch.
 
@@ -9,7 +9,6 @@ I only proved strong normalization for terms but not for types. The latter is qu
 
 The strong normalization proof can be extended to a strong normalization proof for Calculus of Constructions (CoC) by translating CoC terms to F Omega terms. The translation proof does not require impredicativity and can be carried out in Agda and Coq alike. Note that this translation proof is no longer possible the moment you extend CoC with large elimination because the translation fundamentally relies on the erasure of terms appearing in types (which also means CoC is a bad example for understanding how to model the mutual dependency between terms and types).
 
-The development relies on functional and propositional extensionality. There are ways to get rid of them, though I decided to take the easy way out for the sake of my sanity.
 
 Here are some references I used for this development:
 - [A short and flexible proof of strong normalization for the calculus of constructions](https://pure.tue.nl/ws/files/2181809/9511424.pdf)
