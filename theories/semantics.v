@@ -603,10 +603,10 @@ Proof.
     qauto l:on use:ty_sem_preservation_star, int_eq_trans, int_eq_sym.
 Qed.
 
-Theorem f_omega_sn Δ Γ a A : Wt Δ Γ a A -> SN a.
+Corollary f_omega_sn Δ Γ a A : Wt Δ Γ a A -> SN a.
 Proof.
   move => h. have h0 := soundness.
-  specialize h0 with (1 := def_val_adequate Δ) (2 := var_tm_id Δ Γ).
+  specialize h0 with (1 := def_val_adequate Δ) (2 := def_val_per Δ) (3 := var_tm_id Δ Γ).
   specialize (h0 a A h).
   have : adequateP _ (int_type (regularity h) (def_val Δ)) by
     eauto using adequacy, def_val_adequate.
