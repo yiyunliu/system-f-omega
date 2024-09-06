@@ -1,9 +1,11 @@
 # Strong normalization and parametricity for System F Omega in Coq
 An axiom-free model for curry-style System F Omega (PTS with type-level computation and polymorphism, but without dependent types) mechanized in Coq.
 
+The `f_omega_normalize` function in [semantics.v](theories/semantics.v) effectively gives you a normalizer for well-typed F omega terms.
+
 The default [fomega](https://github.com/yiyunliu/system-f-omega) branch contains the SN proof. The parametricity proof, based on Harper's notes [Reynolds’s Parametricity Theorem, Directly](https://www.cs.cmu.edu/~rwh/courses/chtt/pdfs/reynolds.pdf), can be found in the [zigzag](https://github.com/yiyunliu/system-f-omega/tree/zigzag) branch.
 
-Coq's impredicative sort `Prop` is necessary for the proof to go through because the object language is impredicative. The lack of impredicativity from the metalanguage is the reason why [this Agda development](https://github.com/AndrasKovacs/system-f-omega) is incomplete.
+Coq's impredicative sort `Prop` is necessary for the proof to go through because the object language is impredicative. The lack of impredicativity from the metalanguage is the reason why [the substitution function in Agda development](https://github.com/AndrasKovacs/system-f-omega) can't be proven to be terminating.
 
 I only proved strong normalization for terms but not for types. The latter is quite easy because type-level computation is simply typed and can be proven independently from the SN result for terms.
 

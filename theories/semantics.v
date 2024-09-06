@@ -399,8 +399,6 @@ Lemma ty_sem_preservation Δ A B k (h0 : TyWt Δ A k) (h1 : TyWt Δ B k) ξ0 ξ1
     move => i k l. dependent elimination l; by simp V_Cons int_eq.
 Qed.
 
-From Hammer Require Import Hammer.
-
 Lemma ty_sem_preservation_star Δ A B k (h0 : TyWt Δ A k) (h1 : TyWt Δ B k) ξ :
   (forall i k (l : Lookup i Δ k), int_eq _ (ξ _ _ l) (ξ _ _ l)) ->
   RTC A B ->
@@ -614,3 +612,11 @@ Proof.
   move /CR1. apply.
   by asimpl in h0.
 Qed.
+
+Definition f_omega_normalize Δ Γ a A :
+  Wt Δ Γ a A -> {v : Tm | relations.rtc FRed a v}.
+  intros h.
+  apply f_omega_sn in h.
+  apply red_props.normalize in h.
+  apply h.
+Defined.
