@@ -1,0 +1,163 @@
+\newif\ifcomments     %% include author discussion
+\newif\ifanonymous    %% include author identities
+\newif\ifextended     %% include appendix
+\newif\ifsubmission   %% prepare the submitted version
+\newif\ifpublic       %% version available for posting / final version
+
+\documentclass[acmsmall, nonacm=true]{acmart}
+
+% \setcopyright{rightsretained}
+% \acmDOI{}
+% \acmYear{2025}
+% \copyrightyear{2025}
+% \acmSubmissionID{}
+% \acmJournal{PACMPL}
+% \acmVolume{}
+% \acmNumber{POPL}
+% \acmArticle{}
+% \acmMonth{}
+% \received{}
+% \received[accepted]{}
+
+\let\Bbbk\relax
+\usepackage{draft} % local
+\usepackage[supertabular]{ottalt} % local
+\let\newlist\relax
+\let\renewlist\relax
+\usepackage{enumitem}
+\usepackage{amsmath,amssymb}
+\usepackage{natbib}
+\usepackage{mathpartir,mathtools,stmaryrd}
+\usepackage{todonotes,listings,xspace,color,tcolorbox,doi}
+\usepackage[flushmargin,multiple,para]{footmisc}
+\usepackage[noend]{algpseudocode}
+\usepackage[capitalize,noabbrev,nameinlink]{cleveref}
+
+\citestyle{acmauthoryear}
+
+\hypersetup{
+  colorlinks=true,
+  urlcolor=blue,
+  citecolor=violet
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  basewidth=0.5em,
+  aboveskip=0pt,
+  belowskip=0pt,
+  basicstyle=\ttfamily,
+  columns=fixed,
+  mathescape=true,
+  breaklines=false,
+  morekeywords={data,where,case,of},
+  morecomment=[l][\color{gray}]--,
+  literate=
+    {->}{{$\mathrel{\rightarrow}$}}2
+    {\\}{{$\lambda$}}1
+    {=>}{{$\mathrel{\Rightarrow}$}}2
+    {~}{{=}}1
+}
+
+\ifcomments
+\newnote{sw}{blue} % Stephanie Weirich
+\newnote{yl}{purple} % Yiyun Liu
+\newnote{jc}{olive} % Jonathan Chan
+\else
+\newcommand{\sw}[1]{}
+\newcommand{\yl}[1]{}
+\newcommand{\jc}[1]{}
+\fi
+
+\DeclarePairedDelimiter{\bracks}{\llbracket}{\rrbracket}
+\DeclarePairedDelimiter{\braces}{\lbrace}{\rbrace}
+
+\newcommand{\suppress}[1]{}
+\newcommand{\dcoi}{DCOI\@\xspace}
+\newcommand{\name}{\texorpdfstring{DCOI$^{\omega}$\@\xspace}{DCOI-omega}}
+\newcommand{\longname}{Dependent Calculus of Indistinguishability\@\xspace}
+\newcommand{\ie}{\textit{i.e.}\@\xspace}
+\newcommand{\eg}{\textit{e.g.}\@\xspace}
+\newcommand{\apriori}{\textit{a priori}\@\xspace}
+\newcommand{\aposteriori}{\textit{a posteriori}\@\xspace}
+\newcommand{\suppl}[3]{{\scriptsize\texttt{#2:#3}}}
+\newcommand{\judgement}[1]{{\setlength{\fboxsep}{1.5pt}\fbox{#1}}}
+\newcommand{\mathcolorbox}[2]{\colorbox{#1}{$#2$}}
+\newcommand{\hlcolor}{yellow}
+\newcommand{\repo}{%
+  \ifpublic our public repository at \jc{TODO: replace with repo URL}%
+  \else the supplementary materials%
+  \fi
+}
+
+\newcommand{\interp}[4]{\bracks{#1 \vDash_{#2} #3} \searrow #4}
+\newcommand{\interpU}[3]{\bracks{#1 \vDash_{#2} #3}}
+\newcommand{\buildset}[3]{#2 . \braces{#1 \mid #3}}
+\newcommand{\member}[3]{#1 \in #3(#2)}
+\newcommand{\dom}{\mathop{\mathsf{dom}}}
+\newcommand{\sws}[3]{#1 \vDash #2 : #3}
+\newcommand{\swt}[4]{#1 \vDash #2 :^{#3} #4}
+\newcommand{\swf}[1]{\vDash #1}
+\newcommand{\prodspace}[5]{#1 \in \hat{\Pi}(#2^{#3}, #4^{#5})}
+\newcommand{\sigspace}[5]{#1 \in \hat{\Sigma}(#2^{#3}, #4^{#5})}
+\newcommand{\univspace}[1]{\hat{\mathcal{U}}_{#1}}
+\newcommand{\eqspace}[5]{#1 \in (#2 \vdash #3 \mathrel{\hat{=}}^{#5} #4)}
+
+\newlength{\punctwidth}
+% \punctstack{<punct>} treats <punct> as having no width,
+% so that footnotes after it can stack on top
+\newcommand{\punctstack}[1]{#1%
+  \settowidth{\punctwidth}{#1}%
+  \hspace*{-\the\punctwidth}%
+}
+% \stack{<punct>} is a negative space the size of <punct>
+% to manually stack existing punctuation and footnotes
+% atop one another; essentially \punctstack without the punct
+\newcommand{\stack}[1]{%
+  \settowidth{\punctwidth}{#1}%
+  \hspace*{-\the\punctwidth}%
+}
+
+% reduce spacing surrounding captions
+\setlength\abovecaptionskip{1pt plus 1pt minus 1pt}
+\setlength\belowcaptionskip{1pt plus 1pt minus 1pt}
+
+% reduce spacing surrounding figures
+\setlength{\intextsep}{6pt plus 2pt minus 2pt}
+\setlength{\textfloatsep}{6pt plus 2pt minus 2pt}
+
+% \inputott{dcoi-rules}
+
+\title{Strong normalization and parametricity for F$\omega$ in Coq}
+
+\author{Yiyun Liu}
+\orcid{0009-0006-8717-2498}
+\affiliation{%
+  \institution{University of Pennsylvania}
+  \city{Philadelphia}
+  \country{USA}
+}
+\email{liuyiyun@seas.upenn.edu}
+
+%% By default, the full list of authors will be used in the page
+%% headers. Often, this list is too long, and will overlap
+%% other information printed in the page headers. This command allows
+%% the author to define a more concise list
+%% of authors' names for this purpose.
+% \renewcommand{\shortauthors}{Liu et al.}
+
+\begin{document}
+
+\begin{abstract}
+  Abstract
+\end{abstract}
+
+\maketitle
+
+\section{Background}
+Blablabla
+
+% \appendix
+
+
+\end{document}
