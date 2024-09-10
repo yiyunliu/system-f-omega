@@ -128,7 +128,7 @@
 
 % \inputott{dcoi-rules}
 
-\title{Strong normalization and parametricity for F$\omega$ in Coq}
+\title{Strong normalization for F$\omega$ in Coq}
 
 \author{Yiyun Liu}
 \orcid{0009-0006-8717-2498}
@@ -154,10 +154,105 @@
 
 \maketitle
 
-\section{Background}
-Blablabla
-
 % \appendix
+
+\section{Introduction}
+Type level computation + impredicativity pose a different set of challenges.
+
+\section{Curry-style System F$\omega$}
+In this section, we review the syntax, operational semantics, and
+typing rules of F$\omega$.
+
+The syntax of kinds, type constructors, and terms can be found in Figure~\ref{fig:syntax}.
+We choose to present F$\omega$ in
+curry-style, meaning that for all quantifications are implicit in the
+term syntax. % For example, in curry-style System F$\omega$, the lambda
+% term $\lambda x . x$ can be ascribed the type $\forall \alpha . \alpha
+% \rightarrow \alpha$. In church-style System F$\omega$, the same type
+% is inhabited by the term $\Lambda \alpha. \lambda x : \alpha . x$,
+% where the quantification over the type $\alpha$ explicitly appears in
+% the term syntax.
+% We present our system in curry-style to simplify the definitions of
+% renaming and substitution; a church-style representation would require
+% us to additionally define the operation to substitute type constructors into
+% terms.
+
+The notion of kinds allows us to specify when a type constructor is
+well-formed. The kind $\star$ represents our usual notion of
+types. The kind $k_0 \rightarrow k_1$ represents a type-level
+computation that takes a constructor of kind $k_0$ and returns a
+constructor of kind $k_1$. For example, the polymorphic list
+constructor in Haskell and OCaml can be ascribed the kind $\star
+\rightarrow \star$; when given some type $A$, it returns another type that
+represents lists containing elements of type $A$.
+
+The term syntax of F$\omega$ is identical to that of the pure untyped
+lambda calculus. The terms $b\ a$ and $\lambda x . a$ stand for
+applications and abstractions respectively.
+The same constructs are mirrored in the syntax for constructors, where $B\ A$ and
+$\Lambda \alpha . A$ are applications and abstractions at the
+type-level. The arrow type $A \rightarrow B$ can be ascribed to
+term-level functions. The for all type $\forall \alpha : k . A$ allows
+us to define polymorphic functions that abstract over
+constructors. When $k$ is instantiated to $\star$, we recover the more
+limited type of quantification in System F, where we can only abstract
+a term over types, but not arbitrary type-level computations.
+
+The reduction rules for constructors and terms can be found in
+Figure~\ref{fig:opsem}. Thanks to the Curry-style representation, we
+can define the operational semantics for constructors and terms
+independently since constructors never appear in the term syntax. The
+operational semantics for terms and constructors are similar, though
+the semantics of constructors additionally include congruence rules
+for forall types and arrow types.
+
+Typing for System F$\omega$ requires two judgment forms: the
+well-formedness of constructors (Figure~\ref{fig:tywt}) and the
+well-typedness of terms (Figure~\ref{fig:wt}).
+The well-formedness judgment takes the form $\Delta \vdash A \in k$,
+where $\Delta$, which we refer to as the kinding context, is a finite
+map from constructor variables to kinds.
+
+\section{Strong normalization}
+In this section, we prove that every well-typed F$\omega$ terms are
+strongly normalizing with a logical relation. Following
+\citet{abel:poplmark}, we inductively characterize the set of strongly
+normalizing terms through the judgments in Figure~\ref{fig:sn}. From
+the definitions in Figure~\ref{fig:sn}, we define the notion of
+saturated sets, which is necessary for interpreting the forall type.
+
+
+To define a logical relation, we need to define a function that
+interprets each type to a set of terms. However, in F$\omega$, types
+may appear in the form of $B\ A$, where $B$ and $A$ are
+constructors. As a result, we need to generalize the domain of our
+interpretation function to include constructors of different kinds.
+
+We start by defining the interpretation of kinds and higher-order
+candidate space.
+TODO:
+
+
+
+% However, the presence of
+% impredicativity and type-level computation makes the definition of the
+% logical relation difficult.
+
+% Type-level computation prevents us from defining the logical relation
+% as a simple recursive function over raw constructors since
+% constructors of the form $(\Lambda \alpha : k . \alpha\ \alpha)
+% (\Lambda \alpha : k . \alpha\ \alpha)$
+
+
+
+\section{Parametricity}
+
+
+\section{Eliminating extensionality axioms}
+
+\section{Discussion and Related Work}
+
+\subsection{Syntactic logical relation for predicative type systems}
 
 
 \end{document}
